@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2019",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "strict": true,
+    "types": ["@figma/plugin-typings"],
+    "lib": ["ES2019", "DOM"],
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}

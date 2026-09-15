@@ -1,0 +1,11 @@
+node_modules/
+scripts/.*.cjs
+*.zip
+HANDOFF.MD
+.env
+.env.*
+!.env.example
+*.log
+.tmp*/
+.DS_Store
+Thumbs.db
