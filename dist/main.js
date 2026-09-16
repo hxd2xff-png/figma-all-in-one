@@ -1132,7 +1132,7 @@
       </div>\r
 \r
       <div class="card" data-page-node-id="h68brhrpkutEVZpZFFAe7I">\r
-        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between" data-page-node-id="OHbNMT9E012hFuj2odwciv"><span class="lang-title"><span class="dot en" data-page-node-id="jIF2AF8GGfPkgYEOKG1dH7"></span>英文</span><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--muted)"><input id="kerning-outer" type="number" value="-45" step="1" style="width:48px;padding:5px 4px;text-align:center"/><span>%</span></label><button class="btn-ghost" id="kerning-apply" style="padding:5px 10px;font-size:11px">自动微调</button></div><div class="status" id="kerning-status"></div>\r
+        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between" data-page-node-id="OHbNMT9E012hFuj2odwciv"><span class="lang-title"><span class="dot en" data-page-node-id="jIF2AF8GGfPkgYEOKG1dH7"></span>英文</span><span style="display:flex;align-items:center;gap:5px"><label style="display:flex;align-items:center;gap:2px;font-size:11px;color:var(--muted)"><input id="kerning-outer" type="number" value="-45" step="1" style="width:48px;padding:5px 4px;text-align:center"/><span>%</span></label><button class="btn-ghost" id="kerning-apply" style="padding:5px 10px;font-size:11px">自动微调</button></span></div><div class="status" id="kerning-status"></div>\r
         <div class="field" data-page-node-id="pix27OwA2SVYSuEgOuH2gJ">\r
           <label data-page-node-id="AaPEWEFKDmEP5rQP9ilIou">字体</label>\r
           <div class="dd" data-target="en-font" data-placeholder="选择字体…">\r
