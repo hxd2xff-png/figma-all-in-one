@@ -9,7 +9,7 @@
   ],
   "capabilities": [],
   "networkAccess": {
-    "allowedDomains": []
+    "allowedDomains": ["none"]
   },
   "documentAccess": "dynamic-page"
 }
