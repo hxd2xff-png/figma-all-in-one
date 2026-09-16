@@ -2309,6 +2309,12 @@
       list.innerHTML = '';\r
       $('#preset-pop-empty').style.display = items.length ? 'none' : 'block';\r
 \r
+      const def = document.createElement('button');\r
+      def.className = 'preset-row' + (!currentScheme ? ' on' : '');\r
+      def.innerHTML = '<span class=\\"preset-row-name\\">默认</span><span class=\\"preset-row-tip\\">识别选中</span>';\r
+      def.onclick = () => { setCurrentLabel(''); closePresetPop(); figmaNotify('已切换默认，恢复识别回填'); detectActive(); };\r
+      list.append(def);\r
+\r
       items.forEach((p) => {\r
         const row = document.createElement('button');\r
         row.className = 'preset-row' + (p.name === currentScheme ? ' on' : '');\r
@@ -2526,6 +2532,12 @@
       const items = getStylePresets().filter((p) => p.name.toLowerCase().includes(q));\r
       list.innerHTML = '';\r
       $('#sp-pop-empty').style.display = items.length ? 'none' : 'block';\r
+\r
+      const def = document.createElement('button');\r
+      def.className = 'preset-row' + (!currentScheme ? ' on' : '');\r
+      def.innerHTML = '<span class=\\"preset-row-name\\">默认</span><span class=\\"preset-row-tip\\">识别选中</span>';\r
+      def.onclick = () => { setCurrentLabel(''); closePresetPop(); figmaNotify('已切换默认，恢复识别回填'); detectActive(); };\r
+      list.append(def);\r
 \r
       items.forEach((p) => {\r
         const row = document.createElement('button');\r
