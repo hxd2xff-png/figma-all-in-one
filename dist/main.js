@@ -500,7 +500,7 @@
   function applyAutoKerning(node) {
     const text = node.characters || "";
     if (!text || text.length < 2) return { applied: 0, skipped: 0 };
-    const marker = JSON.stringify({ version: 2, text });
+    const marker = JSON.stringify({ version: 3, text });
     if (node.getPluginData("auto-kerning") === marker) return { applied: 0, skipped: text.length - 1 };
     let applied = 0;
     let skipped = 0;
@@ -510,7 +510,12 @@
         skipped++;
         continue;
       }
-      const value = getPairAdjustment(pair) || -4;
+      const isSymbol = (ch) => /[\p{P}\p{S}]/u.test(ch);
+      if (!isSymbol(pair[0]) && !isSymbol(pair[1])) {
+        skipped++;
+        continue;
+      }
+      const value = getPairAdjustment(pair) || -12;
       node.setRangeLetterSpacing(i, i + 1, { unit: "PERCENT", value });
       applied++;
     }

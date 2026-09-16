@@ -10,13 +10,15 @@ export type AutoKerningResult = { applied: number; skipped: number };
 export function applyAutoKerning(node: TextNode): AutoKerningResult {
   const text = node.characters || '';
   if (!text || text.length < 2) return { applied: 0, skipped: 0 };
-  const marker = JSON.stringify({ version: 2, text });
+  const marker = JSON.stringify({ version: 3, text });
   if (node.getPluginData('auto-kerning') === marker) return { applied: 0, skipped: text.length - 1 };
   let applied = 0; let skipped = 0;
   for (let i = 0; i < text.length - 1; i++) {
     const pair = text.slice(i, i + 2);
     if (/\s/.test(pair[0]) || /\s/.test(pair[1])) { skipped++; continue; }
-    const value = getPairAdjustment(pair) || -4;
+    const isSymbol = (ch: string) => /[\p{P}\p{S}]/u.test(ch);
+    if (!isSymbol(pair[0]) && !isSymbol(pair[1])) { skipped++; continue; }
+    const value = getPairAdjustment(pair) || -12;
     node.setRangeLetterSpacing(i, i + 1, { unit: 'PERCENT', value });
     applied++;
   }
