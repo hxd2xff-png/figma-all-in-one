@@ -19,10 +19,6 @@ export function applyAutoKerning(node: TextNode): AutoKerningResult {
     if (pairs[text[i]]) stack.push({ ch: text[i], index: i });
     else { const at = stack.length - 1; if (at >= 0 && pairs[stack[at].ch] === text[i]) matched.push([stack.pop()!.index, i]); }
   }
-  for (const [open, close] of matched) {
-    if (open > 0) { node.setRangeLetterSpacing(open - 1, open, { unit: 'PERCENT', value: -45 }); applied++; }
-    if (close < text.length - 1) { node.setRangeLetterSpacing(close, close + 1, { unit: 'PERCENT', value: -45 }); applied++; }
-  }
   for (let i = 0; i < text.length - 1; i++) {
     const pair = text.slice(i, i + 2);
     if (/\s/.test(pair[0]) || /\s/.test(pair[1])) { skipped++; continue; }
@@ -31,6 +27,11 @@ export function applyAutoKerning(node: TextNode): AutoKerningResult {
     const value = getPairAdjustment(pair) || -12;
     node.setRangeLetterSpacing(i, i + 1, { unit: 'PERCENT', value });
     applied++;
+  }
+
+  for (const [open, close] of matched) {
+    if (open > 0) { node.setRangeLetterSpacing(open - 1, open, { unit: 'PERCENT', value: -45 }); applied++; }
+    if (close < text.length - 1) { node.setRangeLetterSpacing(close, close + 1, { unit: 'PERCENT', value: -45 }); applied++; }
   }
 
   return { applied, skipped };
