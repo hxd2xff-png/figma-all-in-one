@@ -465,38 +465,6 @@
   }
 
   // src/features/auto-kerning.ts
-  var PAIR_ADJUSTMENTS = {
-    AV: -8,
-    AW: -7,
-    AY: -9,
-    FA: -5,
-    LT: -4,
-    LY: -6,
-    PA: -5,
-    Ta: -6,
-    Te: -5,
-    To: -8,
-    Tr: -4,
-    Tu: -5,
-    Va: -7,
-    Ve: -6,
-    Vo: -7,
-    Wa: -8,
-    We: -6,
-    Wo: -7,
-    Ya: -8,
-    Yo: -8,
-    ".,": -4,
-    ':"': -6,
-    '"A': -4,
-    '"T': -5,
-    "'A": -4,
-    "'T": -5
-  };
-  function getPairAdjustment(pair) {
-    var _a;
-    return (_a = PAIR_ADJUSTMENTS[pair]) != null ? _a : 0;
-  }
   function applyAutoKerning(node) {
     const text = node.characters || "";
     if (!text || text.length < 2) return { applied: 0, skipped: 0 };
@@ -512,19 +480,23 @@
         if (at >= 0 && pairs[stack[at].ch] === text[i]) matched.push([stack.pop().index, i]);
       }
     }
+    const pairedIndexes = /* @__PURE__ */ new Set();
+    for (const [open, close] of matched) {
+      pairedIndexes.add(open);
+      pairedIndexes.add(close);
+    }
     for (let i = 0; i < text.length - 1; i++) {
-      const pair = text.slice(i, i + 2);
-      if (/\s/.test(pair[0]) || /\s/.test(pair[1])) {
+      const ch = text[i];
+      if (/\s/.test(ch)) {
         skipped++;
         continue;
       }
-      const isSymbol = (ch) => /[\p{P}\p{S}]/u.test(ch);
-      if (!isSymbol(pair[0]) && !isSymbol(pair[1])) {
+      const isSymbol = /[\p{P}\p{S}]/u.test(ch);
+      if (!isSymbol || pairedIndexes.has(i)) {
         skipped++;
         continue;
       }
-      const value = getPairAdjustment(pair) || -12;
-      node.setRangeLetterSpacing(i, i + 1, { unit: "PERCENT", value });
+      node.setRangeLetterSpacing(i, i + 1, { unit: "PERCENT", value: -30 });
       applied++;
     }
     for (const [open, close] of matched) {

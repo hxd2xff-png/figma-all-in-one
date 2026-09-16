@@ -19,13 +19,14 @@ export function applyAutoKerning(node: TextNode): AutoKerningResult {
     if (pairs[text[i]]) stack.push({ ch: text[i], index: i });
     else { const at = stack.length - 1; if (at >= 0 && pairs[stack[at].ch] === text[i]) matched.push([stack.pop()!.index, i]); }
   }
+  const pairedIndexes = new Set<number>();
+  for (const [open, close] of matched) { pairedIndexes.add(open); pairedIndexes.add(close); }
   for (let i = 0; i < text.length - 1; i++) {
-    const pair = text.slice(i, i + 2);
-    if (/\s/.test(pair[0]) || /\s/.test(pair[1])) { skipped++; continue; }
-    const isSymbol = (ch: string) => /[\p{P}\p{S}]/u.test(ch);
-    if (!isSymbol(pair[0]) && !isSymbol(pair[1])) { skipped++; continue; }
-    const value = getPairAdjustment(pair) || -12;
-    node.setRangeLetterSpacing(i, i + 1, { unit: 'PERCENT', value });
+    const ch = text[i];
+    if (/\s/.test(ch)) { skipped++; continue; }
+    const isSymbol = /[\p{P}\p{S}]/u.test(ch);
+    if (!isSymbol || pairedIndexes.has(i)) { skipped++; continue; }
+    node.setRangeLetterSpacing(i, i + 1, { unit: 'PERCENT', value: -30 });
     applied++;
   }
 
