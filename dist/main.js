@@ -1515,7 +1515,7 @@
       if (msg.type === 'font-mixer-start') onFontMixStart(msg);\r
       if (msg.type === 'font-mixer-done') showFontMixResult(msg);\r
       if (msg.type === 'bulk-styles-done') showStyleResult(msg);\r
-      if (msg.type === 'auto-kerning-done') $('#kerning-status').textContent = msg.empty ? '未选中文本' : ('已调整 ' + msg.applied + ' 处字符对');\r
+      if (msg.type === 'auto-kerning-done') $('#kerning-status').textContent = msg.empty ? '未选中文本' : ('已调整 ' + msg.applied + ' 处字符对' + (msg.failed ? '，失败 ' + msg.failed + ' 个文本' : ''));\r
       if (msg.type === 'export-chunk') chunkChain = chunkChain.then(() => handleChunk(msg));\r
       if (msg.type === 'export-done') await finalizeExport(msg);\r
       if (msg.type === 'storage-data') applyStoredPresets(msg.data);\r
@@ -3136,6 +3136,7 @@
   <\/script>\r
 </body>\r
 </html>\r
+\r
 \r
 \r
 \r
