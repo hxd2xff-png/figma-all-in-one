@@ -1165,7 +1165,9 @@
         </div>\r
       </div>\r
 \r
-      <button class="btn btn-primary" id="font-apply">应用字体混排</button>\`r\`n      <div class="row"><input id="kerning-pair" type="text" maxlength="2" placeholder="手动字符对，如 AV"/><input id="kerning-value" type="number" value="0" step="1" placeholder="数值 %"/></div><button class="btn btn-primary" id="kerning-apply">自动字符对微调</button>\`r\`n      <div class="status" id="kerning-status"></div>\r
+      <button class="btn btn-primary" id="font-apply">应用字体混排</button>\r
+      <div class="row"><input id="kerning-pair" type="text" maxlength="2" placeholder="手动字符对，如 AV"/><input id="kerning-value" type="number" value="0" step="1" placeholder="数值 %"/></div><button class="btn btn-primary" id="kerning-apply">自动字符对微调</button>\r
+      <div class="status" id="kerning-status"></div>\r
       <div class="status" id="font-status"></div>\r
 \r
       <div class="card" data-page-node-id="ofyJgVCAT90A3HfYDY29ER">\r
@@ -1490,7 +1492,7 @@
       if (msg.type === 'font-mixer-start') onFontMixStart(msg);\r
       if (msg.type === 'font-mixer-done') showFontMixResult(msg);\r
       if (msg.type === 'bulk-styles-done') showStyleResult(msg);\r
-      if (msg.type === 'auto-kerning-done') #kerning-status.textContent = msg.empty ? '未选中文本' : ('已调整 ' + msg.applied + ' 处字符对');\r
+      if (msg.type === 'auto-kerning-done') $('#kerning-status').textContent = msg.empty ? '未选中文本' : ('已调整 ' + msg.applied + ' 处字符对');\r
       if (msg.type === 'export-chunk') chunkChain = chunkChain.then(() => handleChunk(msg));\r
       if (msg.type === 'export-done') await finalizeExport(msg);\r
       if (msg.type === 'storage-data') applyStoredPresets(msg.data);\r
@@ -1504,7 +1506,7 @@
     setTimeout(requestFontList, 0);\r
     requestResize();   // 插件打开时先贴合一次当前页高度\r
 \r
-    #kerning-apply.addEventListener('click', () => { #kerning-status.textContent = '处理中…'; send({ type: 'auto-kerning', manualPair: #kerning-pair.value.trim(), manualValue: parseFloat(#kerning-value.value) || 0 }); });\r
+    $('#kerning-apply').addEventListener('click', () => { $('#kerning-status').textContent = '处理中…'; send({ type: 'auto-kerning', manualPair: $('#kerning-pair').value.trim(), manualValue: parseFloat($('#kerning-value').value) || 0 }); });\r
 \r
     // 主进程回传的持久化方案：以它为准覆盖内存态并重绘\r
     function applyStoredPresets(data) {\r
