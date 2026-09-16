@@ -500,7 +500,7 @@
   function applyAutoKerning(node) {
     const text = node.characters || "";
     if (!text || text.length < 2) return { applied: 0, skipped: 0 };
-    const marker = JSON.stringify({ version: 3, text });
+    const marker = JSON.stringify({ version: 4, text });
     if (node.getPluginData("auto-kerning") === marker) return { applied: 0, skipped: text.length - 1 };
     let applied = 0;
     let skipped = 0;
