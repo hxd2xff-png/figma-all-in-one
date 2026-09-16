@@ -20,7 +20,7 @@ export function applyAutoKerning(node: TextNode, pairedOuterValue = -45): AutoKe
     else { const at = stack.length - 1; if (at >= 0 && pairs[stack[at].ch] === text[i]) matched.push([stack.pop()!.index, i]); }
   }
   const pairedIndexes = new Set<number>();
-  const excludedStandalone = new Set(['#', '*', '¥', '·', '~', '%', '&']);
+  const excludedStandalone = new Set(['#', '*', '¥', '·', '~', '%', '&', '.', '/', '\\', '-', '+']);
   for (const [open, close] of matched) { pairedIndexes.add(open); pairedIndexes.add(close); }
   for (let i = 0; i < text.length - 1; i++) {
     const ch = text[i];

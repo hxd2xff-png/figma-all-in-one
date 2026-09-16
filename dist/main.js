@@ -481,7 +481,7 @@
       }
     }
     const pairedIndexes = /* @__PURE__ */ new Set();
-    const excludedStandalone = /* @__PURE__ */ new Set(["#", "*", "¥", "·", "~", "%", "&"]);
+    const excludedStandalone = /* @__PURE__ */ new Set(["#", "*", "¥", "·", "~", "%", "&", ".", "/", "\\", "-", "+"]);
     for (const [open, close] of matched) {
       pairedIndexes.add(open);
       pairedIndexes.add(close);
