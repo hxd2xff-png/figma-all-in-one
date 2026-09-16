@@ -2302,6 +2302,17 @@
       }\r
     }\r
 \r
+    function moveFontPreset(name, delta) {\r
+      const i = fontPresets.findIndex(p => p.name === name), j = i + delta;\r
+      if (i < 0 || j < 0 || j >= fontPresets.length) return;\r
+      const t = fontPresets[i]; fontPresets[i] = fontPresets[j]; fontPresets[j] = t; persistPresets(); renderPresetPop();\r
+    }\r
+    function moveStylePreset(name, delta) {\r
+      const i = stylePresets.findIndex(p => p.name === name), j = i + delta;\r
+      if (i < 0 || j < 0 || j >= stylePresets.length) return;\r
+      const t = stylePresets[i]; stylePresets[i] = stylePresets[j]; stylePresets[j] = t; persistPresets(); renderStylePresetPop();\r
+    }\r
+\r
     function renderPresetPop() {\r
       const list = $('#preset-pop-list');\r
       const q = ($('#preset-search').value || '').trim().toLowerCase();\r
@@ -2331,6 +2342,12 @@
           tip.textContent = '当前';\r
           row.append(tip);\r
         }\r
+\r
+        const up = document.createElement('span'); up.textContent = '↑'; up.title = '上移'; up.onclick = (ev) => { ev.stopPropagation(); moveFontPreset(p.name, -1); }; row.append(up);\r
+        const down = document.createElement('span'); down.textContent = '↓'; down.title = '下移'; down.onclick = (ev) => { ev.stopPropagation(); moveFontPreset(p.name, 1); }; row.append(down);\r
+\r
+        const up = document.createElement('span'); up.textContent = '↑'; up.title = '上移'; up.onclick = (ev) => { ev.stopPropagation(); moveStylePreset(p.name, -1); }; row.append(up);\r
+        const down = document.createElement('span'); down.textContent = '↓'; down.title = '下移'; down.onclick = (ev) => { ev.stopPropagation(); moveStylePreset(p.name, 1); }; row.append(down);\r
 \r
         const del = document.createElement('span');\r
         del.className = 'preset-row-del';\r
