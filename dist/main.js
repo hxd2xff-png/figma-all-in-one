@@ -464,6 +464,60 @@
     return { applied, total };
   }
 
+  // src/features/auto-kerning.ts
+  var PAIR_ADJUSTMENTS = {
+    AV: -8,
+    AW: -7,
+    AY: -9,
+    FA: -5,
+    LT: -4,
+    LY: -6,
+    PA: -5,
+    Ta: -6,
+    Te: -5,
+    To: -8,
+    Tr: -4,
+    Tu: -5,
+    Va: -7,
+    Ve: -6,
+    Vo: -7,
+    Wa: -8,
+    We: -6,
+    Wo: -7,
+    Ya: -8,
+    Yo: -8,
+    ".,": -4,
+    ':"': -6,
+    '"A': -4,
+    '"T': -5,
+    "'A": -4,
+    "'T": -5
+  };
+  function getPairAdjustment(pair) {
+    var _a;
+    return (_a = PAIR_ADJUSTMENTS[pair]) != null ? _a : 0;
+  }
+  function applyAutoKerning(node, manualPair, manualValue) {
+    const text = node.characters || "";
+    if (!text || text.length < 2) return { applied: 0, skipped: 0 };
+    const marker = JSON.stringify({ text, rules: PAIR_ADJUSTMENTS });
+    if (node.getPluginData("auto-kerning") === marker) return { applied: 0, skipped: text.length - 1 };
+    let applied = 0;
+    let skipped = 0;
+    for (let i = 0; i < text.length - 1; i++) {
+      const pair = text.slice(i, i + 2);
+      const value = manualPair && pair === manualPair ? manualValue || 0 : getPairAdjustment(pair);
+      if (!value || !/[A-Za-z]/.test(pair[0])) {
+        skipped++;
+        continue;
+      }
+      node.setRangeLetterSpacing(i, i + 1, { unit: "PERCENT", value });
+      applied++;
+    }
+    node.setPluginData("auto-kerning", marker);
+    return { applied, skipped };
+  }
+
   // src/shared/selection.ts
   function getSelectedNodes() {
     return Array.from(figma.currentPage.selection);
@@ -1111,7 +1165,7 @@
         </div>\r
       </div>\r
 \r
-      <button class="btn btn-primary" id="font-apply">应用字体混排</button>\r
+      <button class="btn btn-primary" id="font-apply">应用字体混排</button>\`r\`n      <div class="row"><input id="kerning-pair" type="text" maxlength="2" placeholder="手动字符对，如 AV"/><input id="kerning-value" type="number" value="0" step="1" placeholder="数值 %"/></div><button class="btn btn-primary" id="kerning-apply">自动字符对微调</button>\`r\`n      <div class="status" id="kerning-status"></div>\r
       <div class="status" id="font-status"></div>\r
 \r
       <div class="card" data-page-node-id="ofyJgVCAT90A3HfYDY29ER">\r
@@ -1436,6 +1490,7 @@
       if (msg.type === 'font-mixer-start') onFontMixStart(msg);\r
       if (msg.type === 'font-mixer-done') showFontMixResult(msg);\r
       if (msg.type === 'bulk-styles-done') showStyleResult(msg);\r
+      if (msg.type === 'auto-kerning-done') #kerning-status.textContent = msg.empty ? '未选中文本' : ('已调整 ' + msg.applied + ' 处字符对');\r
       if (msg.type === 'export-chunk') chunkChain = chunkChain.then(() => handleChunk(msg));\r
       if (msg.type === 'export-done') await finalizeExport(msg);\r
       if (msg.type === 'storage-data') applyStoredPresets(msg.data);\r
@@ -1448,6 +1503,8 @@
     // 启动即异步读取设备字体列表；延后到当前脚本初始化完成，避免变量未初始化。\r
     setTimeout(requestFontList, 0);\r
     requestResize();   // 插件打开时先贴合一次当前页高度\r
+\r
+    #kerning-apply.addEventListener('click', () => { #kerning-status.textContent = '处理中…'; send({ type: 'auto-kerning', manualPair: #kerning-pair.value.trim(), manualValue: parseFloat(#kerning-value.value) || 0 }); });\r
 \r
     // 主进程回传的持久化方案：以它为准覆盖内存态并重绘\r
     function applyStoredPresets(data) {\r
@@ -3054,6 +3111,8 @@
   <\/script>\r
 </body>\r
 </html>\r
+\r
+\r
 `, { width: 400, height: 920 });
   var STORE_KEY = "figma-toolbox-presets";
   void figma.clientStorage.getAsync(STORE_KEY).then((data) => warmFontPresets(data == null ? void 0 : data.fontPresets)).catch(() => {
@@ -3220,6 +3279,19 @@
         });
         figma.notify("字体混排失败：" + m, { error: true });
       }
+    } else if (msg.type === "auto-kerning") {
+      const texts = getTextNodes(sel);
+      let applied = 0;
+      let failed = 0;
+      for (const node of texts) {
+        try {
+          applied += applyAutoKerning(node, String(msg.manualPair || ""), Number(msg.manualValue || 0)).applied;
+        } catch (_) {
+          failed++;
+        }
+      }
+      figma.ui.postMessage({ type: "auto-kerning-done", nodes: texts.length, applied, failed, empty: !texts.length });
+      figma.notify(texts.length ? "自动字符对微调：" + applied + " 处" : "请先选中至少一个文本图层", { error: !texts.length });
     } else if (msg.type === "bulk-styles") {
       const shapes = getStyleableNodes(sel);
       try {

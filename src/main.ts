@@ -2,6 +2,7 @@ import { warmFontPresets, applyFontMix, detectFontMix, collapseFontFamilies, Fon
 import { applyStyles, StyleConfig, readPaintConfig } from './features/bulk-styles';
 import { exportNodes, ExportConfig } from './features/export-compress';
 import { applySkew, analyseSkew, pickSkewTarget, SkewConfig } from './features/skew';
+import { applyAutoKerning } from './features/auto-kerning';
 import { getSelectedNodes, getTextNodes, getStyleableNodes } from './shared/selection';
 
 // 从 Paint 数组里取第一个纯色填充的颜色（无则 null）
@@ -235,6 +236,12 @@ figma.ui.onmessage = async (msg: any) => {
       });
       figma.notify('字体混排失败：' + m, { error: true });
     }
+  } else if (msg.type === 'auto-kerning') {
+    const texts = getTextNodes(sel);
+    let applied = 0; let failed = 0;
+    for (const node of texts) { try { applied += applyAutoKerning(node, String(msg.manualPair || ''), Number(msg.manualValue || 0)).applied; } catch (_) { failed++; } }
+    figma.ui.postMessage({ type: 'auto-kerning-done', nodes: texts.length, applied, failed, empty: !texts.length });
+    figma.notify(texts.length ? ('自动字符对微调：' + applied + ' 处') : '请先选中至少一个文本图层', { error: !texts.length });
   } else if (msg.type === 'bulk-styles') {
     const shapes = getStyleableNodes(sel);
     // 同样要给出明确反馈：选中分组/画框时它们本身没有 fills，会被过滤成 0 个，
@@ -284,3 +291,6 @@ figma.ui.onmessage = async (msg: any) => {
     );
   }
 };
+
+
+
