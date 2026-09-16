@@ -506,8 +506,9 @@
     let skipped = 0;
     for (let i = 0; i < text.length - 1; i++) {
       const pair = text.slice(i, i + 2);
-      const value = manualPair && pair === manualPair ? manualValue || 0 : getPairAdjustment(pair);
-      if (!value || !/[A-Za-z]/.test(pair[0])) {
+      const isCjk = (ch) => /[\u3400-\u9fff\u3040-\u30ff]/.test(ch);
+      const value = manualPair && pair === manualPair ? manualValue || 0 : getPairAdjustment(pair) || (isCjk(pair[0]) && isCjk(pair[1]) ? -3 : 0);
+      if (!value || !/[A-Za-z]/.test(pair[0]) && !isCjk(pair[0])) {
         skipped++;
         continue;
       }
@@ -1136,7 +1137,7 @@
       </div>\r
 \r
       <div class="card" data-page-node-id="h68brhrpkutEVZpZFFAe7I">\r
-        <div class="card-head" data-page-node-id="OHbNMT9E012hFuj2odwciv"><span class="dot en" data-page-node-id="jIF2AF8GGfPkgYEOKG1dH7"></span>英文</div>\r
+        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between" data-page-node-id="OHbNMT9E012hFuj2odwciv"><span><span class="dot en" data-page-node-id="jIF2AF8GGfPkgYEOKG1dH7"></span>英文</span><button class="btn-ghost" id="kerning-apply" style="padding:5px 10px;font-size:11px">自动微调</button></div>\r
         <div class="field" data-page-node-id="pix27OwA2SVYSuEgOuH2gJ">\r
           <label data-page-node-id="AaPEWEFKDmEP5rQP9ilIou">字体</label>\r
           <div class="dd" data-target="en-font" data-placeholder="选择字体…">\r
@@ -1166,8 +1167,7 @@
       </div>\r
 \r
       <button class="btn btn-primary" id="font-apply">应用字体混排</button>\r
-      <div class="row"><input id="kerning-pair" type="text" maxlength="2" placeholder="手动字符对，如 AV"/><input id="kerning-value" type="number" value="0" step="1" placeholder="数值 %"/></div><button class="btn btn-primary" id="kerning-apply">自动字符对微调</button>\r
-      <div class="status" id="kerning-status"></div>\r
+      <div class="row"><input id="kerning-pair" type="text" maxlength="2" placeholder="手动字符对，如 AV"/><input id="kerning-value" type="number" value="0" step="1" placeholder="数值 %"/></div><div class="status" id="kerning-status"></div>\r
       <div class="status" id="font-status"></div>\r
 \r
       <div class="card" data-page-node-id="ofyJgVCAT90A3HfYDY29ER">\r
