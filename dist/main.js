@@ -832,7 +832,7 @@
       letter-spacing: .3px;\r
       margin-bottom: 11px;\r
     }\r
-    .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }\r
+    .lang-title { display:flex; align-items:center; gap:8px; }\`r\`n    .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }\r
     .dot.cn { background: var(--o-2); box-shadow: 0 0 0 3px var(--o-soft); }\r
     .dot.en { background: var(--o-2); box-shadow: 0 0 0 3px var(--o-soft); }\r
 \r
@@ -3105,6 +3105,7 @@
   <\/script>\r
 </body>\r
 </html>\r
+\r
 \r
 \r
 \r
