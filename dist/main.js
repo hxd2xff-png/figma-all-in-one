@@ -504,6 +504,26 @@
     if (node.getPluginData("auto-kerning") === marker) return { applied: 0, skipped: text.length - 1 };
     let applied = 0;
     let skipped = 0;
+    const pairs = { "(": ")", "[": "]", "{": "}", "（": "）", "［": "］", "【": "】", "《": "》", "〈": "〉", "“": "”", "‘": "’", "「": "」", "『": "』", "｛": "｝" };
+    const stack = [];
+    const matched = [];
+    for (let i = 0; i < text.length; i++) {
+      if (pairs[text[i]]) stack.push({ ch: text[i], index: i });
+      else {
+        const at = stack.length - 1;
+        if (at >= 0 && pairs[stack[at].ch] === text[i]) matched.push([stack.pop().index, i]);
+      }
+    }
+    for (const [open, close] of matched) {
+      if (open > 0) {
+        node.setRangeLetterSpacing(open - 1, open, { unit: "PERCENT", value: -24 });
+        applied++;
+      }
+      if (close < text.length - 1) {
+        node.setRangeLetterSpacing(close, close + 1, { unit: "PERCENT", value: -24 });
+        applied++;
+      }
+    }
     for (let i = 0; i < text.length - 1; i++) {
       const pair = text.slice(i, i + 2);
       if (/\s/.test(pair[0]) || /\s/.test(pair[1])) {
