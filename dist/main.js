@@ -465,7 +465,7 @@
   }
 
   // src/features/auto-kerning.ts
-  function applyAutoKerning(node) {
+  function applyAutoKerning(node, pairedOuterValue = -45) {
     const text = node.characters || "";
     if (!text || text.length < 2) return { applied: 0, skipped: 0 };
     let applied = 0;
@@ -502,11 +502,11 @@
     }
     for (const [open, close] of matched) {
       if (open > 0) {
-        node.setRangeLetterSpacing(open - 1, open, { unit: "PERCENT", value: -45 });
+        node.setRangeLetterSpacing(open - 1, open, { unit: "PERCENT", value: pairedOuterValue });
         applied++;
       }
       if (close < text.length - 1) {
-        node.setRangeLetterSpacing(close, close + 1, { unit: "PERCENT", value: -45 });
+        node.setRangeLetterSpacing(close, close + 1, { unit: "PERCENT", value: pairedOuterValue });
         applied++;
       }
     }
@@ -1132,7 +1132,7 @@
       </div>\r
 \r
       <div class="card" data-page-node-id="h68brhrpkutEVZpZFFAe7I">\r
-        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between" data-page-node-id="OHbNMT9E012hFuj2odwciv"><span class="lang-title"><span class="dot en" data-page-node-id="jIF2AF8GGfPkgYEOKG1dH7"></span>英文</span><button class="btn-ghost" id="kerning-apply" style="padding:5px 10px;font-size:11px">自动微调</button></div><div class="status" id="kerning-status"></div>\r
+        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between" data-page-node-id="OHbNMT9E012hFuj2odwciv"><span class="lang-title"><span class="dot en" data-page-node-id="jIF2AF8GGfPkgYEOKG1dH7"></span>英文</span><label style="display:flex;align-items:center;gap:3px;font-size:11px;color:var(--muted)"><input id="kerning-outer" type="number" value="-45" step="1" style="width:48px;padding:5px 4px;text-align:center"/><span>%</span></label><button class="btn-ghost" id="kerning-apply" style="padding:5px 10px;font-size:11px">自动微调</button></div><div class="status" id="kerning-status"></div>\r
         <div class="field" data-page-node-id="pix27OwA2SVYSuEgOuH2gJ">\r
           <label data-page-node-id="AaPEWEFKDmEP5rQP9ilIou">字体</label>\r
           <div class="dd" data-target="en-font" data-placeholder="选择字体…">\r
@@ -1500,7 +1500,7 @@
     setTimeout(requestFontList, 0);\r
     requestResize();   // 插件打开时先贴合一次当前页高度\r
 \r
-    $('#kerning-apply').addEventListener('click', () => { $('#kerning-status').textContent = '处理中…'; send({ type: 'auto-kerning' }); });\r
+    $('#kerning-apply').addEventListener('click', () => { $('#kerning-status').textContent = '处理中…'; send({ type: 'auto-kerning', pairedOuterValue: parseFloat($('#kerning-outer').value) || -45 }); });\r
 \r
     // 主进程回传的持久化方案：以它为准覆盖内存态并重绘\r
     function applyStoredPresets(data) {\r
@@ -3292,7 +3292,7 @@
             const segs = node.getStyledTextSegments(["fontName"]);
             for (const seg of segs) await figma.loadFontAsync(seg.fontName);
           } else await figma.loadFontAsync(f);
-          applied += applyAutoKerning(node).applied;
+          applied += applyAutoKerning(node, Number.isFinite(Number(msg.pairedOuterValue)) ? Number(msg.pairedOuterValue) : -45).applied;
         } catch (_) {
           failed++;
         }

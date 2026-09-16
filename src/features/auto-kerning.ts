@@ -7,7 +7,7 @@ export function getPairAdjustment(pair: string): number { return PAIR_ADJUSTMENT
 
 export type AutoKerningResult = { applied: number; skipped: number };
 
-export function applyAutoKerning(node: TextNode): AutoKerningResult {
+export function applyAutoKerning(node: TextNode, pairedOuterValue = -45): AutoKerningResult {
   const text = node.characters || '';
   if (!text || text.length < 2) return { applied: 0, skipped: 0 };
 
@@ -32,8 +32,8 @@ export function applyAutoKerning(node: TextNode): AutoKerningResult {
   }
 
   for (const [open, close] of matched) {
-    if (open > 0) { node.setRangeLetterSpacing(open - 1, open, { unit: 'PERCENT', value: -45 }); applied++; }
-    if (close < text.length - 1) { node.setRangeLetterSpacing(close, close + 1, { unit: 'PERCENT', value: -45 }); applied++; }
+    if (open > 0) { node.setRangeLetterSpacing(open - 1, open, { unit: 'PERCENT', value: pairedOuterValue }); applied++; }
+    if (close < text.length - 1) { node.setRangeLetterSpacing(close, close + 1, { unit: 'PERCENT', value: pairedOuterValue }); applied++; }
   }
 
   return { applied, skipped };
