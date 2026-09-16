@@ -3314,7 +3314,10 @@
       for (const node of texts) {
         try {
           const f = node.fontName;
-          if (f !== figma.mixed) await figma.loadFontAsync(f);
+          if (f === figma.mixed) {
+            const segs = node.getStyledTextSegments(["fontName"]);
+            for (const seg of segs) await figma.loadFontAsync(seg.fontName);
+          } else await figma.loadFontAsync(f);
           applied += applyAutoKerning(node).applied;
         } catch (_) {
           failed++;
