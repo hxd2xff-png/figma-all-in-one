@@ -20,12 +20,13 @@ export function applyAutoKerning(node: TextNode): AutoKerningResult {
     else { const at = stack.length - 1; if (at >= 0 && pairs[stack[at].ch] === text[i]) matched.push([stack.pop()!.index, i]); }
   }
   const pairedIndexes = new Set<number>();
+  const excludedStandalone = new Set(['#', '*', '¥', '·', '~', '%', '&']);
   for (const [open, close] of matched) { pairedIndexes.add(open); pairedIndexes.add(close); }
   for (let i = 0; i < text.length - 1; i++) {
     const ch = text[i];
     if (/\s/.test(ch)) { skipped++; continue; }
     const isSymbol = /[\p{P}\p{S}]/u.test(ch);
-    if (!isSymbol || pairedIndexes.has(i)) { skipped++; continue; }
+    if (!isSymbol || pairedIndexes.has(i) || excludedStandalone.has(ch)) { skipped++; continue; }
     node.setRangeLetterSpacing(i, i + 1, { unit: 'PERCENT', value: -30 });
     applied++;
   }

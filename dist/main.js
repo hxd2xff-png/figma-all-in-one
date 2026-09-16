@@ -481,6 +481,7 @@
       }
     }
     const pairedIndexes = /* @__PURE__ */ new Set();
+    const excludedStandalone = /* @__PURE__ */ new Set(["#", "*", "¥", "·", "~", "%", "&"]);
     for (const [open, close] of matched) {
       pairedIndexes.add(open);
       pairedIndexes.add(close);
@@ -492,7 +493,7 @@
         continue;
       }
       const isSymbol = /[\p{P}\p{S}]/u.test(ch);
-      if (!isSymbol || pairedIndexes.has(i)) {
+      if (!isSymbol || pairedIndexes.has(i) || excludedStandalone.has(ch)) {
         skipped++;
         continue;
       }
