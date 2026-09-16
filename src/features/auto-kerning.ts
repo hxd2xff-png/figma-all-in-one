@@ -7,17 +7,16 @@ export function getPairAdjustment(pair: string): number { return PAIR_ADJUSTMENT
 
 export type AutoKerningResult = { applied: number; skipped: number };
 
-export function applyAutoKerning(node: TextNode, manualPair?: string, manualValue?: number): AutoKerningResult {
+export function applyAutoKerning(node: TextNode): AutoKerningResult {
   const text = node.characters || '';
   if (!text || text.length < 2) return { applied: 0, skipped: 0 };
-  const marker = JSON.stringify({ text, rules: PAIR_ADJUSTMENTS });
+  const marker = JSON.stringify({ version: 2, text });
   if (node.getPluginData('auto-kerning') === marker) return { applied: 0, skipped: text.length - 1 };
   let applied = 0; let skipped = 0;
   for (let i = 0; i < text.length - 1; i++) {
     const pair = text.slice(i, i + 2);
-    const isCjk = (ch: string) => /[\u3400-\u9fff\u3040-\u30ff]/.test(ch);
-    const value = manualPair && pair === manualPair ? (manualValue || 0) : (getPairAdjustment(pair) || (isCjk(pair[0]) && isCjk(pair[1]) ? -3 : 0));
-    if (!value || (!/[A-Za-z]/.test(pair[0]) && !isCjk(pair[0]))) { skipped++; continue; }
+    if (/\s/.test(pair[0]) || /\s/.test(pair[1])) { skipped++; continue; }
+    const value = getPairAdjustment(pair) || -4;
     node.setRangeLetterSpacing(i, i + 1, { unit: 'PERCENT', value });
     applied++;
   }

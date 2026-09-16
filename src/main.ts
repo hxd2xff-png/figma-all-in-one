@@ -239,7 +239,7 @@ figma.ui.onmessage = async (msg: any) => {
   } else if (msg.type === 'auto-kerning') {
     const texts = getTextNodes(sel);
     let applied = 0; let failed = 0;
-    for (const node of texts) { try { const f = node.fontName; if (f !== figma.mixed) await figma.loadFontAsync(f as FontName); applied += applyAutoKerning(node, String(msg.manualPair || ''), Number(msg.manualValue || 0)).applied; } catch (_) { failed++; } }
+    for (const node of texts) { try { const f = node.fontName; if (f !== figma.mixed) await figma.loadFontAsync(f as FontName); applied += applyAutoKerning(node).applied; } catch (_) { failed++; } }
     figma.ui.postMessage({ type: 'auto-kerning-done', nodes: texts.length, applied, failed, empty: !texts.length });
     figma.notify(texts.length ? ('自动字符对微调：' + applied + ' 处') : '请先选中至少一个文本图层', { error: !texts.length });
   } else if (msg.type === 'bulk-styles') {

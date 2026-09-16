@@ -620,7 +620,6 @@
       </div>
 
       <button class="btn btn-primary" id="font-apply">应用字体混排</button>
-      <div class="row"><input id="kerning-pair" type="text" maxlength="2" placeholder="手动字符对，如 AV"/><input id="kerning-value" type="number" value="0" step="1" placeholder="数值 %"/></div><div class="status" id="kerning-status"></div>
       <div class="status" id="font-status"></div>
 
       <div class="card" data-page-node-id="ofyJgVCAT90A3HfYDY29ER">
@@ -959,7 +958,7 @@
     setTimeout(requestFontList, 0);
     requestResize();   // 插件打开时先贴合一次当前页高度
 
-    $('#kerning-apply').addEventListener('click', () => { $('#kerning-status').textContent = '处理中…'; send({ type: 'auto-kerning', manualPair: $('#kerning-pair').value.trim(), manualValue: parseFloat($('#kerning-value').value) || 0 }); });
+    $('#kerning-apply').addEventListener('click', () => { $('#kerning-status').textContent = '处理中…'; send({ type: 'auto-kerning' }); });
 
     // 主进程回传的持久化方案：以它为准覆盖内存态并重绘
     function applyStoredPresets(data) {

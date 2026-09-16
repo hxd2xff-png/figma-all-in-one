@@ -497,21 +497,20 @@
     var _a;
     return (_a = PAIR_ADJUSTMENTS[pair]) != null ? _a : 0;
   }
-  function applyAutoKerning(node, manualPair, manualValue) {
+  function applyAutoKerning(node) {
     const text = node.characters || "";
     if (!text || text.length < 2) return { applied: 0, skipped: 0 };
-    const marker = JSON.stringify({ text, rules: PAIR_ADJUSTMENTS });
+    const marker = JSON.stringify({ version: 2, text });
     if (node.getPluginData("auto-kerning") === marker) return { applied: 0, skipped: text.length - 1 };
     let applied = 0;
     let skipped = 0;
     for (let i = 0; i < text.length - 1; i++) {
       const pair = text.slice(i, i + 2);
-      const isCjk = (ch) => /[\u3400-\u9fff\u3040-\u30ff]/.test(ch);
-      const value = manualPair && pair === manualPair ? manualValue || 0 : getPairAdjustment(pair) || (isCjk(pair[0]) && isCjk(pair[1]) ? -3 : 0);
-      if (!value || !/[A-Za-z]/.test(pair[0]) && !isCjk(pair[0])) {
+      if (/\s/.test(pair[0]) || /\s/.test(pair[1])) {
         skipped++;
         continue;
       }
+      const value = getPairAdjustment(pair) || -4;
       node.setRangeLetterSpacing(i, i + 1, { unit: "PERCENT", value });
       applied++;
     }
@@ -1167,7 +1166,6 @@
       </div>\r
 \r
       <button class="btn btn-primary" id="font-apply">应用字体混排</button>\r
-      <div class="row"><input id="kerning-pair" type="text" maxlength="2" placeholder="手动字符对，如 AV"/><input id="kerning-value" type="number" value="0" step="1" placeholder="数值 %"/></div><div class="status" id="kerning-status"></div>\r
       <div class="status" id="font-status"></div>\r
 \r
       <div class="card" data-page-node-id="ofyJgVCAT90A3HfYDY29ER">\r
@@ -1506,7 +1504,7 @@
     setTimeout(requestFontList, 0);\r
     requestResize();   // 插件打开时先贴合一次当前页高度\r
 \r
-    $('#kerning-apply').addEventListener('click', () => { $('#kerning-status').textContent = '处理中…'; send({ type: 'auto-kerning', manualPair: $('#kerning-pair').value.trim(), manualValue: parseFloat($('#kerning-value').value) || 0 }); });\r
+    $('#kerning-apply').addEventListener('click', () => { $('#kerning-status').textContent = '处理中…'; send({ type: 'auto-kerning' }); });\r
 \r
     // 主进程回传的持久化方案：以它为准覆盖内存态并重绘\r
     function applyStoredPresets(data) {\r
@@ -3291,7 +3289,7 @@
         try {
           const f = node.fontName;
           if (f !== figma.mixed) await figma.loadFontAsync(f);
-          applied += applyAutoKerning(node, String(msg.manualPair || ""), Number(msg.manualValue || 0)).applied;
+          applied += applyAutoKerning(node).applied;
         } catch (_) {
           failed++;
         }
