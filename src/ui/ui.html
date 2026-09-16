@@ -1992,12 +1992,6 @@
       list.innerHTML = '';
       $('#sp-pop-empty').style.display = items.length ? 'none' : 'block';
 
-      const def = document.createElement('button');
-      def.className = 'preset-row' + (!currentScheme ? ' on' : '');
-      def.innerHTML = '<span class=\"preset-row-name\">默认</span><span class=\"preset-row-tip\">识别选中</span>';
-      def.onclick = () => { setCurrentLabel(''); closePresetPop(); figmaNotify('已切换默认，恢复识别回填'); detectActive(); };
-      list.append(def);
-
       items.forEach((p) => {
         const row = document.createElement('button');
         row.className = 'preset-row' + (p.name === styleCurrent ? ' on' : '');
