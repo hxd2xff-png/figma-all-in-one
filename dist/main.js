@@ -1165,7 +1165,7 @@
         </div>\r
       </div>\r
 \r
-      <button class="btn btn-primary" id="font-apply">应用字体混排</button>\`r\`n      <div class="row"><input id="kerning-pair" type="text" maxlength="2" placeholder="手动字符对，如 AV"/><input id="kerning-value" type="number" value="0" step="1" placeholder="数值 %"/></div><button class="btn btn-primary" id="kerning-apply">自动字符对微调</button>\`r\`n      <div class="status" id="kerning-status"></div>\r
+      <button class="btn btn-primary" id="font-apply">应用字体混排</button>\`n      <div class="row"><input id="kerning-pair" type="text" maxlength="2" placeholder="手动字符对，如 AV"/><input id="kerning-value" type="number" value="0" step="1" placeholder="数值 %"/></div><button class="btn btn-primary" id="kerning-apply">自动字符对微调</button>\`n      <div class="status" id="kerning-status"></div>\r
       <div class="status" id="font-status"></div>\r
 \r
       <div class="card" data-page-node-id="ofyJgVCAT90A3HfYDY29ER">\r
@@ -3111,6 +3111,7 @@
   <\/script>\r
 </body>\r
 </html>\r
+\r
 \r
 \r
 `, { width: 400, height: 920 });
