@@ -834,7 +834,7 @@
     }\r
     .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }\r
     .dot.cn { background: var(--o-2); box-shadow: 0 0 0 3px var(--o-soft); }\r
-    .dot.en { background: #1A1A1A; box-shadow: 0 0 0 3px rgba(26, 26, 26, .10); }\r
+    .dot.en { background: var(--o-2); box-shadow: 0 0 0 3px var(--o-soft); }\r
 \r
     /* ---------- 表单 ---------- */\r
     .field { margin-bottom: 10px; }\r
@@ -1130,7 +1130,7 @@
       </div>\r
 \r
       <div class="card" data-page-node-id="h68brhrpkutEVZpZFFAe7I">\r
-        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between" data-page-node-id="OHbNMT9E012hFuj2odwciv"><span><span class="dot en" data-page-node-id="jIF2AF8GGfPkgYEOKG1dH7"></span>英文</span><button class="btn-ghost" id="kerning-apply" style="padding:5px 10px;font-size:11px">自动微调</button></div><div class="status" id="kerning-status"></div>\r
+        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between" data-page-node-id="OHbNMT9E012hFuj2odwciv"><span class="lang-title"><span class="dot en" data-page-node-id="jIF2AF8GGfPkgYEOKG1dH7"></span>英文</span><button class="btn-ghost" id="kerning-apply" style="padding:5px 10px;font-size:11px">自动微调</button></div><div class="status" id="kerning-status"></div>\r
         <div class="field" data-page-node-id="pix27OwA2SVYSuEgOuH2gJ">\r
           <label data-page-node-id="AaPEWEFKDmEP5rQP9ilIou">字体</label>\r
           <div class="dd" data-target="en-font" data-placeholder="选择字体…">\r
@@ -3105,6 +3105,7 @@
   <\/script>\r
 </body>\r
 </html>\r
+\r
 \r
 \r
 \r
