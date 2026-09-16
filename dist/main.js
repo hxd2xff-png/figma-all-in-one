@@ -500,8 +500,6 @@
   function applyAutoKerning(node) {
     const text = node.characters || "";
     if (!text || text.length < 2) return { applied: 0, skipped: 0 };
-    const marker = JSON.stringify({ version: 5, text });
-    if (node.getPluginData("auto-kerning") === marker) return { applied: 0, skipped: text.length - 1 };
     let applied = 0;
     let skipped = 0;
     const pairs = { "(": ")", "[": "]", "{": "}", "（": "）", "［": "］", "【": "】", "《": "》", "〈": "〉", "“": "”", "‘": "’", "「": "」", "『": "』", "｛": "｝" };
@@ -539,7 +537,6 @@
       node.setRangeLetterSpacing(i, i + 1, { unit: "PERCENT", value });
       applied++;
     }
-    node.setPluginData("auto-kerning", marker);
     return { applied, skipped };
   }
 
