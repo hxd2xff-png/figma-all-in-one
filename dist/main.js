@@ -2346,9 +2346,6 @@
         const up = document.createElement('span'); up.textContent = '↑'; up.title = '上移'; up.onclick = (ev) => { ev.stopPropagation(); moveFontPreset(p.name, -1); }; row.append(up);\r
         const down = document.createElement('span'); down.textContent = '↓'; down.title = '下移'; down.onclick = (ev) => { ev.stopPropagation(); moveFontPreset(p.name, 1); }; row.append(down);\r
 \r
-        const up = document.createElement('span'); up.textContent = '↑'; up.title = '上移'; up.onclick = (ev) => { ev.stopPropagation(); moveStylePreset(p.name, -1); }; row.append(up);\r
-        const down = document.createElement('span'); down.textContent = '↓'; down.title = '下移'; down.onclick = (ev) => { ev.stopPropagation(); moveStylePreset(p.name, 1); }; row.append(down);\r
-\r
         const del = document.createElement('span');\r
         del.className = 'preset-row-del';\r
         del.textContent = '×';\r
@@ -2565,6 +2562,9 @@
           tip.textContent = '当前';\r
           row.append(tip);\r
         }\r
+\r
+        const up = document.createElement('span'); up.textContent = '↑'; up.title = '上移'; up.onclick = (ev) => { ev.stopPropagation(); moveStylePreset(p.name, -1); }; row.append(up);\r
+        const down = document.createElement('span'); down.textContent = '↓'; down.title = '下移'; down.onclick = (ev) => { ev.stopPropagation(); moveStylePreset(p.name, 1); }; row.append(down);\r
 \r
         const del = document.createElement('span');\r
         del.className = 'preset-row-del';\r
