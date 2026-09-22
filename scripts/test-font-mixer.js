@@ -44,6 +44,7 @@ function textNode(name, chars, opts = {}) {
     },
     setRangeFontSize: (s, e, n) => calls.push(['size', s, e, n]),
     setRangeFills: (s, e, p) => calls.push(['fill', s, e, p.length]),
+    setRangeLetterSpacing: (s, e, v) => calls.push(['spacing', s, e, v.value]),
   };
 }
 const fontCalls = (n) => n.calls.filter((c) => c[0] === 'font');
@@ -104,6 +105,15 @@ const fontCalls = (n) => n.calls.filter((c) => c[0] === 'font');
       ['font', 1, 3, 'EN Regular'],
       ['font', 3, 4, 'CN Regular'],
     ]), JSON.stringify(fontCalls(enSymbols)));
+  }
+
+  {
+    const n = textNode('中文成对标点', '中（A）文');
+    await applyFontMix([n], cfg({ symbolFontSide: 'cn' }));
+    ok('罗马数字始终使用中文字体', JSON.stringify(fontCalls(await (async () => { const r = textNode('罗马数字', 'AⅣB'); await applyFontMix([r], cfg({ symbolFontSide: 'en' })); return r; })())) === JSON.stringify([
+      ['font', 0, 1, 'EN Regular'], ['font', 1, 2, 'CN Regular'], ['font', 2, 3, 'EN Regular'],
+    ]));
+    ok('中文状态成对标点外侧缩小间距', n.calls.filter((c) => c[0] === 'spacing').length === 2, JSON.stringify(n.calls));
   }
 
   console.log('=== 3. 单节点失败不拖累其它节点 ===');

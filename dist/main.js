@@ -14,9 +14,28 @@
   function isSymbol(ch) {
     return /[\p{P}\p{S}]/u.test(ch);
   }
+  function isRomanNumeral(ch) {
+    return /[\u2160-\u2188]/u.test(ch);
+  }
   function isChineseSide(ch, symbolFontSide) {
+    if (isRomanNumeral(ch)) return true;
     if (symbolFontSide && isSymbol(ch)) return symbolFontSide === "cn";
     return isCJK(ch);
+  }
+  function applyChinesePairSpacing(node, symbolFontSide) {
+    const pairs = { "(": ")", "[": "]", "{": "}", "（": "）", "［": "］", "【": "】", "《": "》", "〈": "〉", "“": "”", "‘": "’", "「": "」", "『": "』", "｛": "｝" };
+    const stack = [];
+    const matched = [];
+    const text = node.characters || "";
+    for (let i = 0; i < text.length; i++) {
+      if (pairs[text[i]]) stack.push({ ch: text[i], index: i });
+      else if (stack.length && pairs[stack[stack.length - 1].ch] === text[i]) matched.push([stack.pop().index, i]);
+    }
+    for (const [open, close] of matched) {
+      if (!isChineseSide(text[open], symbolFontSide) || !isChineseSide(text[close], symbolFontSide)) continue;
+      if (open > 0) node.setRangeLetterSpacing(open - 1, open, { unit: "PERCENT", value: -45 });
+      if (close < text.length - 1) node.setRangeLetterSpacing(close, close + 1, { unit: "PERCENT", value: -45 });
+    }
   }
   var FONT_LOAD_TIMEOUT_MS = 4e3;
   var fontLoads = /* @__PURE__ */ new WeakMap();
@@ -100,6 +119,7 @@
           }
         }
         applyRange(node, start, text.length, prev, cfg);
+        applyChinesePairSpacing(node, cfg.symbolFontSide);
         result.ok++;
       } catch (e) {
         result.failed.push({ name: node.name, reason: errText(e) });
