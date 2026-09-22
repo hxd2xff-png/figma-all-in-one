@@ -47,7 +47,7 @@ function errText(e: unknown): string {
 // 判断字符是否属于 CJK（含汉字/假名/全角标点）
 // 注：一律用 \uXXXX 转义书写，避免裸控制字节被工具链破坏（曾踩过坑）
 function isCJK(ch: string): boolean {
-  return /[\u3000-\u303F\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3040-\u30FF]/.test(ch);
+  return /[\u3000-\u303F\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3040-\u30FF\uFF00-\uFFEF]/.test(ch);
 }
 
 function isSymbol(ch: string): boolean {
