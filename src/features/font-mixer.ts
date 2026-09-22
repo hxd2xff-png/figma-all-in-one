@@ -12,6 +12,8 @@ export interface FontMixConfig {
   enSize: number | null; // 英文号；null = 不改
   cnColor: RGB | null; // 中文字色；null = 不改
   enColor: RGB | null; // 英文字色；null = 不改
+  symbolFontSide?: 'cn' | 'en'; // 符号使用哪一侧字体；默认沿用旧规则
+  applyColors?: boolean; // 是否同步应用中英文颜色；默认不改颜色
 }
 
 export interface FontMixResult {
@@ -46,6 +48,15 @@ function errText(e: unknown): string {
 // 注：一律用 \uXXXX 转义书写，避免裸控制字节被工具链破坏（曾踩过坑）
 function isCJK(ch: string): boolean {
   return /[\u3000-\u303F\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3040-\u30FF]/.test(ch);
+}
+
+function isSymbol(ch: string): boolean {
+  return /[\p{P}\p{S}]/u.test(ch);
+}
+
+function isChineseSide(ch: string, symbolFontSide?: 'cn' | 'en'): boolean {
+  if (symbolFontSide && isSymbol(ch)) return symbolFontSide === 'cn';
+  return isCJK(ch);
 }
 
 /* ============================================================
@@ -135,9 +146,9 @@ export async function applyFontMix(nodes: TextNode[], cfg: FontMixConfig): Promi
       node.fontName = cfg.cnFont;
 
       let start = 0;
-      let prev = isCJK(text[0]);
+      let prev = isChineseSide(text[0], cfg.symbolFontSide);
       for (let i = 1; i < text.length; i++) {
-        const cur = isCJK(text[i]);
+        const cur = isChineseSide(text[i], cfg.symbolFontSide);
         if (cur !== prev) {
           applyRange(node, start, i, prev, cfg);
           prev = cur;
@@ -161,8 +172,10 @@ function applyRange(node: TextNode, start: number, end: number, cjk: boolean, cf
   const size = cjk ? cfg.cnSize : cfg.enSize;
   if (size != null) node.setRangeFontSize(start, end, size);
 
-  const color = cjk ? cfg.cnColor : cfg.enColor;
-  if (color != null) node.setRangeFills(start, end, [{ type: 'SOLID', color }]);
+  if (cfg.applyColors) {
+    const color = cjk ? cfg.cnColor : cfg.enColor;
+    if (color != null) node.setRangeFills(start, end, [{ type: 'SOLID', color }]);
+  }
 }
 
 /* ============================================================

@@ -11,6 +11,13 @@
   function isCJK(ch) {
     return /[\u3000-\u303F\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3040-\u30FF]/.test(ch);
   }
+  function isSymbol(ch) {
+    return /[\p{P}\p{S}]/u.test(ch);
+  }
+  function isChineseSide(ch, symbolFontSide) {
+    if (symbolFontSide && isSymbol(ch)) return symbolFontSide === "cn";
+    return isCJK(ch);
+  }
   var FONT_LOAD_TIMEOUT_MS = 4e3;
   var fontLoads = /* @__PURE__ */ new WeakMap();
   function loadFontSafe(f) {
@@ -83,9 +90,9 @@
         }
         node.fontName = cfg.cnFont;
         let start = 0;
-        let prev = isCJK(text[0]);
+        let prev = isChineseSide(text[0], cfg.symbolFontSide);
         for (let i = 1; i < text.length; i++) {
-          const cur = isCJK(text[i]);
+          const cur = isChineseSide(text[i], cfg.symbolFontSide);
           if (cur !== prev) {
             applyRange(node, start, i, prev, cfg);
             prev = cur;
@@ -105,8 +112,10 @@
     if (font && font.family) node.setRangeFontName(start, end, font);
     const size = cjk ? cfg.cnSize : cfg.enSize;
     if (size != null) node.setRangeFontSize(start, end, size);
-    const color = cjk ? cfg.cnColor : cfg.enColor;
-    if (color != null) node.setRangeFills(start, end, [{ type: "SOLID", color }]);
+    if (cfg.applyColors) {
+      const color = cjk ? cfg.cnColor : cfg.enColor;
+      if (color != null) node.setRangeFills(start, end, [{ type: "SOLID", color }]);
+    }
   }
   function detectFontMix(input) {
     const out = {
@@ -492,8 +501,8 @@
         skipped++;
         continue;
       }
-      const isSymbol = /[\p{P}\p{S}]/u.test(ch);
-      if (!isSymbol || pairedIndexes.has(i) || excludedStandalone.has(ch)) {
+      const isSymbol2 = /[\p{P}\p{S}]/u.test(ch);
+      if (!isSymbol2 || pairedIndexes.has(i) || excludedStandalone.has(ch)) {
         skipped++;
         continue;
       }
@@ -827,12 +836,22 @@
       margin-bottom: 10px;\r
       box-shadow: 0 8px 22px -14px rgba(90, 55, 38, .45);\r
     }\r
-    .card-head {\r
+    .card-head {
       display: flex; align-items: center; gap: 8px;\r
       font-size: 12px; font-weight: 700; color: var(--ink-2);\r
       letter-spacing: .3px;\r
       margin-bottom: 11px;\r
-    }\r
+    }
+    .symbol-actions { margin-left: auto; display: flex; gap: 5px; }
+    .symbol-btn {
+      min-height: 28px; padding: 4px 8px;
+      border: 1px solid #F5E2D8; border-radius: 9px;
+      background: #fff; color: var(--ink-3);
+      font-family: inherit; font-size: 10.5px; line-height: 1.1; font-weight: 600; cursor: pointer;
+      transition: all .18s ease;
+    }
+    .symbol-btn:hover { color: var(--o-2); border-color: #FFCDB8; background: #FFF7F3; }
+    .symbol-btn[aria-pressed="true"] { color: #fff; border-color: var(--o-2); background: var(--o-2); box-shadow: 0 4px 10px -6px rgba(255, 90, 43, .9); }
     .lang-title { display:flex; align-items:center; gap:8px; }\r
     .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }\r
     .dot.cn { background: var(--o-2); box-shadow: 0 0 0 3px var(--o-soft); }\r
@@ -1011,7 +1030,10 @@
       margin-bottom: 10px;\r
     }\r
     .btn-primary:hover { filter: brightness(1.05); box-shadow: 0 12px 22px -10px rgba(255, 90, 43, .95); }\r
-    .btn-primary:active { transform: translateY(1px) scale(.995); }\r
+    .btn-primary:active { transform: translateY(1px) scale(.995); }
+    .font-apply-group { display: flex; margin-bottom: 10px; }
+    .font-apply-group .btn-primary { flex: 1; margin-bottom: 0; border-radius: 12px 0 0 12px; }
+    .font-apply-group .btn-primary + .btn-primary { border-left: 1px solid rgba(255,255,255,.55); border-radius: 0 12px 12px 0; }
 \r
     .btn-ghost {\r
       width: auto;\r
@@ -1102,7 +1124,7 @@
       </div>\r
 \r
       <div class="card" data-page-node-id="fTFDw4xiKJcAtnY7PhhPGC">\r
-        <div class="card-head" data-page-node-id="SvAAbqnrdcJbydKlFuBJQT"><span class="dot cn" data-page-node-id="jDJeCWDVryzUERlZfljamX"></span>中文</div>\r
+        <div class="card-head" data-page-node-id="SvAAbqnrdcJbydKlFuBJQT"><span class="dot cn" data-page-node-id="jDJeCWDVryzUERlZfljamX"></span><span>中文</span><span class="symbol-actions"><button type="button" class="symbol-btn" data-symbol-side="cn" aria-pressed="false" title="将所有符号使用中文字体">符号用中文</button></span></div>
         <div class="field" data-page-node-id="8JniWzZr2M3XijmLNCxlZX">\r
           <label data-page-node-id="3zQxF4nq2VNjcZk2BW7AyS">字体</label>\r
           <div class="dd" data-target="cn-font" data-placeholder="选择字体…">\r
@@ -1132,7 +1154,7 @@
       </div>\r
 \r
       <div class="card" data-page-node-id="h68brhrpkutEVZpZFFAe7I">\r
-        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between" data-page-node-id="OHbNMT9E012hFuj2odwciv"><span class="lang-title"><span class="dot en" data-page-node-id="jIF2AF8GGfPkgYEOKG1dH7"></span>英文</span><span style="display:flex;align-items:center;gap:5px"><label style="display:flex;align-items:center;gap:2px;font-size:11px;color:var(--muted)"><input id="kerning-outer" type="number" value="-45" step="1" style="width:48px;padding:5px 4px;text-align:center"/><span>%</span></label><button class="btn-ghost" id="kerning-apply" style="padding:5px 10px;font-size:11px">自动微调</button></span></div><div class="status" id="kerning-status"></div>\r
+        <div class="card-head" style="display:flex;align-items:center;justify-content:space-between" data-page-node-id="OHbNMT9E012hFuj2odwciv"><span class="lang-title"><span class="dot en" data-page-node-id="jIF2AF8GGfPkgYEOKG1dH7"></span>英文</span><span style="display:flex;align-items:center;gap:5px"><span class="symbol-actions"><button type="button" class="symbol-btn" data-symbol-side="en" aria-pressed="false" title="将所有符号使用英文字体">符号用英文</button></span><label style="display:flex;align-items:center;gap:2px;font-size:11px;color:var(--muted)"><input id="kerning-outer" type="number" value="-45" step="1" style="width:48px;padding:5px 4px;text-align:center"/><span>%</span></label><button class="btn-ghost" id="kerning-apply" style="padding:5px 10px;font-size:11px">自动微调</button></span></div><div class="status" id="kerning-status"></div>
         <div class="field" data-page-node-id="pix27OwA2SVYSuEgOuH2gJ">\r
           <label data-page-node-id="AaPEWEFKDmEP5rQP9ilIou">字体</label>\r
           <div class="dd" data-target="en-font" data-placeholder="选择字体…">\r
@@ -1161,7 +1183,10 @@
         </div>\r
       </div>\r
 \r
-      <button class="btn btn-primary" id="font-apply">应用字体混排</button>\r
+      <div class="font-apply-group" role="group" aria-label="应用字体混排">
+        <button class="btn btn-primary" id="font-apply-color" type="button">应用字体混排与颜色</button>
+        <button class="btn btn-primary" id="font-apply" type="button">应用字体混排</button>
+      </div>
       <div class="status" id="font-status"></div>\r
 \r
       <div class="card" data-page-node-id="ofyJgVCAT90A3HfYDY29ER">\r
@@ -1414,7 +1439,8 @@
     const $ = (s) => document.querySelector(s);\r
     let activeTab = 'font';   // 当前激活标签页，用于决定「识别」读哪类节点\r
     const ddRegistry = {};    // 通用下拉组件实例表，按目标 select 的 id 索引\r
-    const fontSel = { cn: null, en: null };   // 中/英文字体的真实取值状态（方案保存以它为准）\r
+    const fontSel = { cn: null, en: null };   // 中/英文字体的真实取值状态（方案保存以它为准）
+    let symbolFontSide = null;                // null = 兼容旧规则，或显式指定 cn/en
     // 字体混排的等待守卫：主进程若长时间不回包（例如字体加载卡住），\r
     // 必须主动告诉用户，否则状态栏会永远停在「应用中…」，看起来就是按钮坏了。\r
     let fontGuard = null;\r
@@ -2208,32 +2234,47 @@
     }\r
     function fontLabel(f) { return f ? f.family + ' / ' + f.style : ''; }\r
     // 设置某一路字体：写状态 + 更新下拉显示（字体不在本机列表时自动补选项）\r
-    function setFontValue(which, font) {\r
+    function setFontValue(which, font) {
       if (!font || !font.family) return;\r
       fontSel[which] = { family: font.family, style: font.style };\r
       const id = which === 'cn' ? 'cn-font' : 'en-font';\r
       const dd = ddRegistry[id];\r
       if (dd) dd.setValue(JSON.stringify(fontSel[which]), fontLabel(fontSel[which]));\r
-    }\r
+    }
+
+    function setSymbolFontSide(side) {
+      symbolFontSide = side === 'cn' || side === 'en' ? side : null;
+      document.querySelectorAll('[data-symbol-side]').forEach((button) => {
+        const active = button.dataset.symbolSide === symbolFontSide;
+        button.setAttribute('aria-pressed', String(active));
+      });
+    }
+    document.querySelectorAll('[data-symbol-side]').forEach((button) => {
+      button.addEventListener('click', () => setSymbolFontSide(button.dataset.symbolSide));
+    });
 \r
     // ---- 字体混排：应用 ----\r
-    $('#font-apply').addEventListener('click', () => {\r
-      const cnFont = fontSel.cn || parseFont($('#cn-font').value);\r
-      const enFont = fontSel.en || parseFont($('#en-font').value);\r
-      if (!cnFont || !enFont) { figmaNotify('请先选择中英文各自的字体'); return; }\r
-      const cfg = {\r
-        cnFont,\r
-        enFont,\r
-        cnSize: parseFloat($('#cn-size').value) || null,\r
-        enSize: parseFloat($('#en-size').value) || null,\r
-        cnColor: hexToRgb($('#cn-color').value),\r
-        enColor: hexToRgb($('#en-color').value),\r
-      };\r
-      send({ type: 'font-mixer', config: cfg });\r
+    function applyFontMixFromUI(applyColors) {
+      const cnFont = fontSel.cn || parseFont($('#cn-font').value);
+      const enFont = fontSel.en || parseFont($('#en-font').value);
+      if (!cnFont || !enFont) { figmaNotify('请先选择中英文各自的字体'); return; }
+      const cfg = {
+        cnFont,
+        enFont,
+        cnSize: parseFloat($('#cn-size').value) || null,
+        enSize: parseFloat($('#en-size').value) || null,
+        cnColor: hexToRgb($('#cn-color').value),
+        enColor: hexToRgb($('#en-color').value),
+        symbolFontSide,
+        applyColors,
+      };
+      send({ type: 'font-mixer', config: cfg });
       // 立即反馈并启动等待守卫；主进程随后会回 font-mixer-start / font-mixer-done。\r
       // 即使主进程完全不回包，20 秒后也会明确告知，而不是永远停在「应用中…」。\r
-      onFontMixStart({ total: 0 });\r
-    });\r
+      onFontMixStart({ total: 0 });
+    }
+    $('#font-apply-color').addEventListener('click', () => applyFontMixFromUI(true));
+    $('#font-apply').addEventListener('click', () => applyFontMixFromUI(false));
 \r
     /* ============================================================\r
        字体混排方案预设（仅字体混排功能 · 顶部下拉选择器）\r
@@ -2280,8 +2321,9 @@
         enFont: fontSel.en || parseFont($('#en-font').value),\r
         cnSize: parseFloat($('#cn-size').value) || null,\r
         enSize: parseFloat($('#en-size').value) || null,\r
-        cnColor: hexToRgb($('#cn-color').value),\r
-        enColor: hexToRgb($('#en-color').value),\r
+        cnColor: hexToRgb($('#cn-color').value),
+        enColor: hexToRgb($('#en-color').value),
+        symbolFontSide,
       };\r
     }\r
 \r
@@ -2391,7 +2433,8 @@
       $('#cn-size').value = p.cnSize != null ? p.cnSize : '';\r
       $('#en-size').value = p.enSize != null ? p.enSize : '';\r
       if (p.cnColor) $('#cn-color').value = rgbToHex(p.cnColor);\r
-      if (p.enColor) $('#en-color').value = rgbToHex(p.enColor);\r
+      if (p.enColor) $('#en-color').value = rgbToHex(p.enColor);
+      setSymbolFontSide(p.symbolFontSide);
     }\r
 \r
     function openPresetPop() {\r

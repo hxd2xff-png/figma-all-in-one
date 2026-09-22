@@ -78,6 +78,34 @@ const fontCalls = (n) => n.calls.filter((c) => c[0] === 'font');
     ok('ok 计数为 0', r.ok === 0);
   }
 
+  {
+    const n = textNode('默认不改颜色', '中文abc');
+    await applyFontMix([n], cfg({ cnColor: { r: 1, g: 0, b: 0 }, enColor: { r: 0, g: 0, b: 1 } }));
+    ok('默认不调整颜色', n.calls.every((c) => c[0] !== 'fill'), JSON.stringify(n.calls));
+    const n2 = textNode('开启颜色', '中文abc');
+    await applyFontMix([n2], cfg({ applyColors: true, cnColor: { r: 1, g: 0, b: 0 }, enColor: { r: 0, g: 0, b: 1 } }));
+    ok('左侧按钮可同步颜色', n2.calls.filter((c) => c[0] === 'fill').length === 2, JSON.stringify(n2.calls));
+  }
+
+  console.log('=== 符号字体归属 ===');
+  {
+    const cnSymbols = textNode('中文符号', '中!A文');
+    await applyFontMix([cnSymbols], cfg({ symbolFontSide: 'cn' }));
+    ok('符号归中文字体', JSON.stringify(fontCalls(cnSymbols)) === JSON.stringify([
+      ['font', 0, 2, 'CN Regular'],
+      ['font', 2, 3, 'EN Regular'],
+      ['font', 3, 4, 'CN Regular'],
+    ]), JSON.stringify(fontCalls(cnSymbols)));
+
+    const enSymbols = textNode('英文符号', '中!A文');
+    await applyFontMix([enSymbols], cfg({ symbolFontSide: 'en' }));
+    ok('符号归英文字体', JSON.stringify(fontCalls(enSymbols)) === JSON.stringify([
+      ['font', 0, 1, 'CN Regular'],
+      ['font', 1, 3, 'EN Regular'],
+      ['font', 3, 4, 'CN Regular'],
+    ]), JSON.stringify(fontCalls(enSymbols)));
+  }
+
   console.log('=== 3. 单节点失败不拖累其它节点 ===');
   {
     const a = textNode('A', '中文abc');
@@ -116,7 +144,7 @@ const fontCalls = (n) => n.calls.filter((c) => c[0] === 'font');
       n.calls.every((c) => c[0] === 'font'), JSON.stringify(n.calls));
 
     const n2 = textNode('文本', '中文abc');
-    await applyFontMix([n2], cfg({ cnSize: 14, enSize: 12, cnColor: { r: 1, g: 0, b: 0 }, enColor: { r: 0, g: 0, b: 1 } }));
+    await applyFontMix([n2], cfg({ applyColors: true, cnSize: 14, enSize: 12, cnColor: { r: 1, g: 0, b: 0 }, enColor: { r: 0, g: 0, b: 1 } }));
     const kinds = n2.calls.map((c) => c[0]).join(',');
     ok('提供后按段设置字号与颜色', kinds === 'font,size,fill,font,size,fill', kinds);
   }
