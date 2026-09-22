@@ -120,6 +120,13 @@ const fontCalls = (n) => n.calls.filter((c) => c[0] === 'font');
     const routedEn = textNode('符号按钮不影响中文输入法标点', '中（A）文');
     await applyFontMix([routedEn], cfg({ symbolFontSide: 'en' }));
     ok('符号字体按钮不影响中文输入法标点缩进', routedEn.calls.filter((c) => c[0] === 'spacing').length === 2, JSON.stringify(routedEn.calls));
+    const exact = textNode('截图复现', '哑光「大子{}[]弹头」I  ');
+    await applyFontMix([exact], cfg({ symbolFontSide: 'en' }));
+    const exactSpacing = exact.calls.filter((c) => c[0] === 'spacing');
+    ok('截图复现：只调整中文外层「」的外侧间距', JSON.stringify(exactSpacing) === JSON.stringify([
+      ['spacing', 1, 2, -45],
+      ['spacing', 11, 12, -45],
+    ]), JSON.stringify(exactSpacing));
   }
 
   console.log('=== 3. 单节点失败不拖累其它节点 ===');
