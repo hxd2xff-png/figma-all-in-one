@@ -114,6 +114,9 @@ const fontCalls = (n) => n.calls.filter((c) => c[0] === 'font');
       ['font', 0, 1, 'EN Regular'], ['font', 1, 2, 'CN Regular'], ['font', 2, 3, 'EN Regular'],
     ]));
     ok('中文状态成对标点外侧缩小间距', n.calls.filter((c) => c[0] === 'spacing').length === 2, JSON.stringify(n.calls));
+    const en = textNode('英文成对符号', 'A(B)C');
+    await applyFontMix([en], cfg({ symbolFontSide: 'cn' }));
+    ok('英文成对符号不调整外侧间距', en.calls.filter((c) => c[0] === 'spacing').length === 0, JSON.stringify(en.calls));
   }
 
   console.log('=== 3. 单节点失败不拖累其它节点 ===');
