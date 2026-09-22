@@ -33,7 +33,6 @@
     }
     for (const [open, close] of matched) {
       if (!isCJK(text[open]) || !isCJK(text[close])) continue;
-      if (!isChineseSide(text[open], symbolFontSide) || !isChineseSide(text[close], symbolFontSide)) continue;
       if (open > 0) node.setRangeLetterSpacing(open - 1, open, { unit: "PERCENT", value: -45 });
       if (close < text.length - 1) node.setRangeLetterSpacing(close, close + 1, { unit: "PERCENT", value: -45 });
     }

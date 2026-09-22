@@ -74,10 +74,9 @@ function applyChinesePairSpacing(node: TextNode, symbolFontSide?: 'cn' | 'en') {
     else if (stack.length && pairs[stack[stack.length - 1].ch] === text[i]) matched.push([stack.pop()!.index, i]);
   }
   for (const [open, close] of matched) {
-    // 只微调中文标点的外侧间距；英文状态下的 ASCII 成对符号不参与，
-    // 也不能因为「符号用中文」按钮而扩大调整范围。
+    // 只微调中文输入法产生的全角/中文成对标点；英文输入法产生的
+    // ASCII 成对符号不参与。间距判断独立于「符号用中文/英文」字体按钮。
     if (!isCJK(text[open]) || !isCJK(text[close])) continue;
-    if (!isChineseSide(text[open], symbolFontSide) || !isChineseSide(text[close], symbolFontSide)) continue;
     if (open > 0) node.setRangeLetterSpacing(open - 1, open, { unit: 'PERCENT', value: -45 });
     if (close < text.length - 1) node.setRangeLetterSpacing(close, close + 1, { unit: 'PERCENT', value: -45 });
   }
