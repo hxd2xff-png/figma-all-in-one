@@ -117,6 +117,9 @@ const fontCalls = (n) => n.calls.filter((c) => c[0] === 'font');
     const en = textNode('英文成对符号', 'A(B)C');
     await applyFontMix([en], cfg({ symbolFontSide: 'cn' }));
     ok('英文成对符号不调整外侧间距', en.calls.filter((c) => c[0] === 'spacing').length === 0, JSON.stringify(en.calls));
+    const routedEn = textNode('归英文的中文标点', '中（A）文');
+    await applyFontMix([routedEn], cfg({ symbolFontSide: 'en' }));
+    ok('归英文字体的中文标点不调整外侧间距', routedEn.calls.filter((c) => c[0] === 'spacing').length === 0, JSON.stringify(routedEn.calls));
   }
 
   console.log('=== 3. 单节点失败不拖累其它节点 ===');

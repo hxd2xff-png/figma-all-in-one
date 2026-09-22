@@ -9,7 +9,7 @@
     return String(m || "未知错误").slice(0, 90);
   }
   function isCJK(ch) {
-    return /[\u3000-\u303F\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3040-\u30FF]/.test(ch);
+    return /[\u3000-\u303F\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF\u3040-\u30FF\uFF00-\uFFEF]/.test(ch);
   }
   function isSymbol(ch) {
     return /[\p{P}\p{S}]/u.test(ch);
@@ -33,7 +33,7 @@
     }
     for (const [open, close] of matched) {
       if (!isCJK(text[open]) || !isCJK(text[close])) continue;
-      if (symbolFontSide === "en") continue;
+      if (!isChineseSide(text[open], symbolFontSide) || !isChineseSide(text[close], symbolFontSide)) continue;
       if (open > 0) node.setRangeLetterSpacing(open - 1, open, { unit: "PERCENT", value: -45 });
       if (close < text.length - 1) node.setRangeLetterSpacing(close, close + 1, { unit: "PERCENT", value: -45 });
     }
