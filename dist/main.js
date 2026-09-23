@@ -15,9 +15,19 @@
     return /[\p{P}\p{S}]/u.test(ch);
   }
   function isRomanNumeral(ch) {
-    return /[\u2160-\u2188]/u.test(ch);
+    return /[\u2160-\u216B\u2170-\u217B]/u.test(ch);
   }
   var ASCII_ROMAN_TOKEN = /^(?:M{0,4}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3}))$/;
+  function romanValue(token) {
+    const values = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1e3 };
+    let total = 0;
+    for (let i = 0; i < token.length; i++) {
+      const value = values[token[i]] || 0;
+      const next = values[token[i + 1]] || 0;
+      total += value < next ? -value : value;
+    }
+    return total;
+  }
   function isAsciiRomanNumeralAt(text, index) {
     if (!/[IVXLCDM]/.test(text[index] || "")) return false;
     let start = index;
@@ -26,10 +36,11 @@
     while (end < text.length && /[IVXLCDM]/.test(text[end])) end++;
     const token = text.slice(start, end);
     if (!ASCII_ROMAN_TOKEN.test(token) || !/[IVX]/.test(token)) return false;
+    if (romanValue(token) > 25) return false;
     const prev = start > 0 ? text[start - 1] : "";
     const next = end < text.length ? text[end] : "";
-    if (/[A-Za-z]/.test(prev) || /[A-Za-z]/.test(next)) return false;
-    if (token.length === 1 && !isCJK(prev) && !isCJK(next) && !/[0-9]/.test(prev + next)) return false;
+    if (/[A-Za-z0-9_-]/.test(prev) || /[A-Za-z0-9_-]/.test(next)) return false;
+    if (token.length === 1 && !isCJK(prev) && !isCJK(next)) return false;
     return true;
   }
   function isChineseSide(ch, symbolFontSide) {

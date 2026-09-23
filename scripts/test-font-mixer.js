@@ -146,6 +146,16 @@ const fontCalls = (n) => n.calls.filter((c) => c[0] === 'font');
     ok('ASCII 罗马数字序列归中文字体', JSON.stringify(fontCalls(asciiRoman)) === JSON.stringify([
       ['font', 0, 2, 'EN Regular'], ['font', 2, 4, 'CN Regular'], ['font', 4, 6, 'EN Regular'],
     ]), JSON.stringify(fontCalls(asciiRoman)));
+    const embeddedRoman = textNode('字母数字编码不应误判罗马数字', '10MLX2 SKU-IV-A MIX123');
+    await applyFontMix([embeddedRoman], cfg({ symbolFontSide: 'en' }));
+    ok('嵌入字母数字编码保持英文字体', JSON.stringify(fontCalls(embeddedRoman)) === JSON.stringify([
+      ['font', 0, 22, 'EN Regular'],
+    ]), JSON.stringify(fontCalls(embeddedRoman)));
+    const romanLimit = textNode('罗马数字上限', 'XXV XXVI MIX');
+    await applyFontMix([romanLimit], cfg({ symbolFontSide: 'en' }));
+    ok('仅 25 以内罗马数字归中文，较大或歧义词归英文', JSON.stringify(fontCalls(romanLimit)) === JSON.stringify([
+      ['font', 0, 3, 'CN Regular'], ['font', 3, 12, 'EN Regular'],
+    ]), JSON.stringify(fontCalls(romanLimit)));
     const superSub = textNode('上下标字母数字使用英文字体', 'A²B₃Cⁿ');
     await applyFontMix([superSub], cfg({ symbolFontSide: 'en' }));
     ok('普通上标下标字母数字使用英文字体', JSON.stringify(fontCalls(superSub)) === JSON.stringify([

@@ -56,12 +56,25 @@ function isSymbol(ch: string): boolean {
 }
 
 function isRomanNumeral(ch: string): boolean {
-  return /[\u2160-\u2188]/u.test(ch);
+  // 只把 Unicode 中常见的 1~12 罗马数字归中文侧；L/C/D/M、古体等
+  // 较大或少见形式按英文处理，避免无法可靠辨认的字符误分。
+  return /[\u2160-\u216B\u2170-\u217B]/u.test(ch);
 }
 
 // ASCII 罗马数字（I、II、IV、XIV 等）本质上由英文字母组成，不能按单字符
 // 判断，否则应用时一定会落到英文侧。只把独立、格式合法的常见序列归到中文侧。
 const ASCII_ROMAN_TOKEN = /^(?:M{0,4}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3}))$/;
+
+function romanValue(token: string): number {
+  const values: Record<string, number> = { I: 1, V: 5, X: 10, L: 50, C: 100, D: 500, M: 1000 };
+  let total = 0;
+  for (let i = 0; i < token.length; i++) {
+    const value = values[token[i]] || 0;
+    const next = values[token[i + 1]] || 0;
+    total += value < next ? -value : value;
+  }
+  return total;
+}
 
 function isAsciiRomanNumeralAt(text: string, index: number): boolean {
   if (!/[IVXLCDM]/.test(text[index] || '')) return false;
@@ -71,10 +84,14 @@ function isAsciiRomanNumeralAt(text: string, index: number): boolean {
   while (end < text.length && /[IVXLCDM]/.test(text[end])) end++;
   const token = text.slice(start, end);
   if (!ASCII_ROMAN_TOKEN.test(token) || !/[IVX]/.test(token)) return false;
+  // 产品约定：只识别 I~XXV。MIX 等英文歧义词及 XXVI 以上统一按英文。
+  if (romanValue(token) > 25) return false;
   const prev = start > 0 ? text[start - 1] : '';
   const next = end < text.length ? text[end] : '';
-  if (/[A-Za-z]/.test(prev) || /[A-Za-z]/.test(next)) return false;
-  if (token.length === 1 && !isCJK(prev) && !isCJK(next) && !/[0-9]/.test(prev + next)) return false;
+  // 只有独立的罗马数字词才归中文侧。嵌入字母数字编码（如
+  // 10MLX2、SKU-IV-A、MIX123）必须保持英文侧，不能误判成罗马数字。
+  if (/[A-Za-z0-9_-]/.test(prev) || /[A-Za-z0-9_-]/.test(next)) return false;
+  if (token.length === 1 && !isCJK(prev) && !isCJK(next)) return false;
   return true;
 }
 
