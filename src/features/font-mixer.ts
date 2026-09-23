@@ -13,6 +13,7 @@ export interface FontMixConfig {
   cnColor: RGB | null; // 中文字色；null = 不改
   enColor: RGB | null; // 英文字色；null = 不改
   symbolFontSide?: 'cn' | 'en'; // 符号使用哪一侧字体；默认沿用旧规则
+  pairedOuterValue?: number; // 中文全角成对标点外侧微调值；未命中规则的成对符号写入 0
   applyColors?: boolean; // 是否同步应用中英文颜色；默认不改颜色
 }
 
@@ -58,14 +59,45 @@ function isRomanNumeral(ch: string): boolean {
   return /[\u2160-\u2188]/u.test(ch);
 }
 
+// ASCII 罗马数字（I、II、IV、XIV 等）本质上由英文字母组成，不能按单字符
+// 判断，否则应用时一定会落到英文侧。只把独立、格式合法的常见序列归到中文侧。
+const ASCII_ROMAN_TOKEN = /^(?:M{0,4}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3}))$/;
+
+function isAsciiRomanNumeralAt(text: string, index: number): boolean {
+  if (!/[IVXLCDM]/.test(text[index] || '')) return false;
+  let start = index;
+  while (start > 0 && /[IVXLCDM]/.test(text[start - 1])) start--;
+  let end = index + 1;
+  while (end < text.length && /[IVXLCDM]/.test(text[end])) end++;
+  const token = text.slice(start, end);
+  if (!ASCII_ROMAN_TOKEN.test(token) || !/[IVX]/.test(token)) return false;
+  const prev = start > 0 ? text[start - 1] : '';
+  const next = end < text.length ? text[end] : '';
+  if (/[A-Za-z]/.test(prev) || /[A-Za-z]/.test(next)) return false;
+  if (token.length === 1 && !isCJK(prev) && !isCJK(next) && !/[0-9]/.test(prev + next)) return false;
+  return true;
+}
+
 function isChineseSide(ch: string, symbolFontSide?: 'cn' | 'en'): boolean {
   if (isRomanNumeral(ch)) return true;
   if (symbolFontSide && isSymbol(ch)) return symbolFontSide === 'cn';
   return isCJK(ch);
 }
 
-function applyChinesePairSpacing(node: TextNode, symbolFontSide?: 'cn' | 'en') {
-  const pairs: Record<string, string> = { '(': ')', '[': ']', '{': '}', '（': '）', '［': '］', '【': '】', '《': '》', '〈': '〉', '“': '”', '‘': '’', '「': '」', '『': '』', '｛': '｝' };
+function isChineseSideAt(text: string, index: number, symbolFontSide?: 'cn' | 'en'): boolean {
+  const ch = String.fromCodePoint(text.codePointAt(index)!);
+  if (isRomanNumeral(ch) || isAsciiRomanNumeralAt(text, index)) return true;
+  return isChineseSide(ch, symbolFontSide);
+}
+
+function applyChinesePairSpacing(node: TextNode, symbolFontSide?: 'cn' | 'en', pairedOuterValue = -45) {
+  const pairs: Record<string, string> = {
+    '(': ')', '[': ']', '{': '}',
+    '（': '）', '［': '］', '｛': '｝', '＜': '＞',
+    '【': '】', '〔': '〕', '〖': '〗', '〘': '〙', '〚': '〛',
+    '《': '》', '〈': '〉', '“': '”', '‘': '’', '「': '」', '『': '』',
+    '﹁': '﹂', '﹃': '﹄', '﹙': '﹚', '﹛': '﹜', '﹝': '﹞',
+  };
   const stack: Array<{ ch: string; index: number }> = [];
   const matched: Array<[number, number]> = [];
   const text = node.characters || '';
@@ -76,9 +108,9 @@ function applyChinesePairSpacing(node: TextNode, symbolFontSide?: 'cn' | 'en') {
   for (const [open, close] of matched) {
     // 只微调中文输入法产生的全角/中文成对标点；英文输入法产生的
     // ASCII 成对符号不参与。间距判断独立于「符号用中文/英文」字体按钮。
-    if (!isCJK(text[open]) || !isCJK(text[close])) continue;
-    if (open > 0) node.setRangeLetterSpacing(open - 1, open, { unit: 'PERCENT', value: -45 });
-    if (close < text.length - 1) node.setRangeLetterSpacing(close, close + 1, { unit: 'PERCENT', value: -45 });
+    const value = isCJK(text[open]) && isCJK(text[close]) ? pairedOuterValue : 0;
+    if (open > 0) node.setRangeLetterSpacing(open - 1, open, { unit: 'PERCENT', value });
+    if (close < text.length - 1) node.setRangeLetterSpacing(close, close + 1, { unit: 'PERCENT', value });
   }
 }
 
@@ -167,20 +199,35 @@ export async function applyFontMix(nodes: TextNode[], cfg: FontMixConfig): Promi
 
       // fontName 整体赋值只依赖新字体；此后所有区间都使用已加载字体。
       node.fontName = cfg.cnFont;
+      const rangeErrors: string[] = [];
+      const applySafe = (start: number, end: number, cjk: boolean) => {
+        try { applyRange(node, start, end, cjk, cfg); }
+        catch (e) { rangeErrors.push(`${start}-${end}: ${errText(e)}`); }
+      };
 
       let start = 0;
-      let prev = isChineseSide(text[0], cfg.symbolFontSide);
-      for (let i = 1; i < text.length; i++) {
-        const cur = isChineseSide(text[i], cfg.symbolFontSide);
+      const first = String.fromCodePoint(text.codePointAt(0)!);
+      let prev = isChineseSideAt(text, 0, cfg.symbolFontSide);
+      for (let i = first.length; i < text.length;) {
+        const ch = String.fromCodePoint(text.codePointAt(i)!);
+        const end = i + ch.length;
+        const cur = isChineseSideAt(text, i, cfg.symbolFontSide);
         if (cur !== prev) {
-          applyRange(node, start, i, prev, cfg);
+          applySafe(start, i, prev);
           prev = cur;
           start = i;
         }
+        i = end;
       }
-      applyRange(node, start, text.length, prev, cfg);
-      applyChinesePairSpacing(node, cfg.symbolFontSide);
-      result.ok++;
+      applySafe(start, text.length, prev);
+      try {
+        applyChinesePairSpacing(node, cfg.symbolFontSide, Number.isFinite(cfg.pairedOuterValue) ? cfg.pairedOuterValue : -45);
+      } catch (e) { rangeErrors.push(`spacing: ${errText(e)}`); }
+      if (rangeErrors.length) {
+        result.failed.push({ name: node.name, reason: `部分区间应用失败（${rangeErrors.slice(0, 2).join('；')}${rangeErrors.length > 2 ? '…' : ''}）` });
+      } else {
+        result.ok++;
+      }
     } catch (e) {
       result.failed.push({ name: node.name, reason: errText(e) });
     }
@@ -191,7 +238,9 @@ export async function applyFontMix(nodes: TextNode[], cfg: FontMixConfig): Promi
 
 function applyRange(node: TextNode, start: number, end: number, cjk: boolean, cfg: FontMixConfig) {
   const font = cjk ? cfg.cnFont : cfg.enFont;
-  if (font && font.family) node.setRangeFontName(start, end, font);
+  if (font && font.family) {
+    node.setRangeFontName(start, end, font);
+  }
 
   const size = cjk ? cfg.cnSize : cfg.enSize;
   if (size != null) node.setRangeFontSize(start, end, size);
@@ -227,7 +276,7 @@ export function detectFontMix(input: TextNode | TextNode[]): DetectedFontMix {
       const ch = String.fromCodePoint(text.codePointAt(i)!);
       const end = i + ch.length;
       if (!/\s/.test(ch)) {
-        const side = isCJK(ch) ? 'cn' : 'en';
+        const side = isChineseSideAt(text, i) ? 'cn' : 'en';
         if (!seen[side]) {
           try {
             const font = node.getRangeFontName(i, end);

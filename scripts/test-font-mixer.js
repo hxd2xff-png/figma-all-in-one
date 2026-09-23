@@ -12,6 +12,7 @@ const ok = (name, cond, extra) => {
 const AVAILABLE = new Set(['CN Regular', 'EN Regular', 'Old Regular', 'Alt Regular']);
 let loaded = [];
 global.figma = {
+  mixed: Symbol('mixed'),
   loadFontAsync: async (f) => {
     const key = f.family + ' ' + f.style;
     loaded.push(key);
@@ -32,15 +33,26 @@ const cfg = (over) => Object.assign({
 function textNode(name, chars, opts = {}) {
   const calls = [];
   let baseFont = null;
+  const appliedFonts = new Map();
   return {
     calls, type: 'TEXT', name, characters: chars,
     set fontName(f) { if (opts.throwOnSet) throw new Error('boom'); baseFont = f; },
     get fontName() { return baseFont; },
     getRangeAllFontNames: () => opts.mixedFonts || [F('Old', 'Regular')],
+    getRangeFontName: (s, e) => opts.silentFontWrite
+      ? F('Old', 'Regular')
+      : opts.mixedReadback ? global.figma.mixed
+      : (appliedFonts.get(`${s}:${e}`) || baseFont),
+    getStyledTextSegments: () => opts.mixedSegments || Array.from(appliedFonts.entries()).map(([key, fontName]) => {
+      const [start, end] = key.split(':').map(Number);
+      return { start, end, fontName };
+    }),
     setRangeFontName: (s, e, f) => {
       if (opts.throwOnSet) throw new Error('boom');
+      if (opts.throwRangeAt && opts.throwRangeAt[0] === s && opts.throwRangeAt[1] === e) throw new Error('range boom');
       if (!baseFont) throw new Error('Old fonts are not loaded: replace fontName first');
       calls.push(['font', s, e, f.family + ' ' + f.style]);
+      if (!opts.silentFontWrite) appliedFonts.set(`${s}:${e}`, f);
     },
     setRangeFontSize: (s, e, n) => calls.push(['size', s, e, n]),
     setRangeFills: (s, e, p) => calls.push(['fill', s, e, p.length]),
@@ -68,6 +80,22 @@ const fontCalls = (n) => n.calls.filter((c) => c[0] === 'font');
     await applyFontMix([n], cfg());
     ok('纯英文 = 单段 [0,3)',
       JSON.stringify(fontCalls(n)) === JSON.stringify([['font', 0, 3, 'EN Regular']]), JSON.stringify(fontCalls(n)));
+  }
+  {
+    const n = textNode('静默写入失败', '中文abc', { silentFontWrite: true });
+    const r = await applyFontMix([n], cfg());
+    ok('字体写入调用完成后不因回读误报失败', r.ok === 1 && r.failed.length === 0, JSON.stringify(r));
+  }
+  {
+    const n = textNode('混合回读但实际已写入', '中文abc', {
+      mixedReadback: true,
+      mixedSegments: [
+        { start: 0, end: 2, fontName: CN },
+        { start: 2, end: 5, fontName: EN },
+      ],
+    });
+    const r = await applyFontMix([n], cfg());
+    ok('Figma 回读 mixed 但分段字体正确时显示成功', r.ok === 1 && r.failed.length === 0, JSON.stringify(r));
   }
 
   console.log('=== 2. 目标字体本机不可用 → 整体中止并明确上报 ===');
@@ -113,17 +141,44 @@ const fontCalls = (n) => n.calls.filter((c) => c[0] === 'font');
     ok('罗马数字始终使用中文字体', JSON.stringify(fontCalls(await (async () => { const r = textNode('罗马数字', 'AⅣB'); await applyFontMix([r], cfg({ symbolFontSide: 'en' })); return r; })())) === JSON.stringify([
       ['font', 0, 1, 'EN Regular'], ['font', 1, 2, 'CN Regular'], ['font', 2, 3, 'EN Regular'],
     ]));
+    const asciiRoman = textNode('ASCII罗马数字', 'A IV B');
+    await applyFontMix([asciiRoman], cfg({ symbolFontSide: 'en' }));
+    ok('ASCII 罗马数字序列归中文字体', JSON.stringify(fontCalls(asciiRoman)) === JSON.stringify([
+      ['font', 0, 2, 'EN Regular'], ['font', 2, 4, 'CN Regular'], ['font', 4, 6, 'EN Regular'],
+    ]), JSON.stringify(fontCalls(asciiRoman)));
+    const superSub = textNode('上下标字母数字使用英文字体', 'A²B₃Cⁿ');
+    await applyFontMix([superSub], cfg({ symbolFontSide: 'en' }));
+    ok('普通上标下标字母数字使用英文字体', JSON.stringify(fontCalls(superSub)) === JSON.stringify([
+      ['font', 0, 6, 'EN Regular'],
+    ]), JSON.stringify(fontCalls(superSub)));
     ok('中文状态成对标点外侧缩小间距', n.calls.filter((c) => c[0] === 'spacing').length === 2, JSON.stringify(n.calls));
     const en = textNode('英文成对符号', 'A(B)C');
     await applyFontMix([en], cfg({ symbolFontSide: 'cn' }));
-    ok('英文成对符号不调整外侧间距', en.calls.filter((c) => c[0] === 'spacing').length === 0, JSON.stringify(en.calls));
+    ok('英文成对符号外侧明确归零', JSON.stringify(en.calls.filter((c) => c[0] === 'spacing')) === JSON.stringify([
+      ['spacing', 0, 1, 0], ['spacing', 3, 4, 0],
+    ]), JSON.stringify(en.calls));
+    const moreCn = textNode('更多中文成对标点', '中【A】文');
+    await applyFontMix([moreCn], cfg({ symbolFontSide: 'en' }));
+    ok('其它全角成对标点也调整外侧间距', moreCn.calls.filter((c) => c[0] === 'spacing').length === 2, JSON.stringify(moreCn.calls));
+    const mixedWidth = textNode('全角中文与半角英文混合', '（「「{}」」）');
+    await applyFontMix([mixedWidth], cfg({ symbolFontSide: 'en' }));
+    ok('混合成对符号按规则调整或归零', JSON.stringify(mixedWidth.calls.filter((c) => c[0] === 'spacing')) === JSON.stringify([
+      ['spacing', 2, 3, 0], ['spacing', 4, 5, 0],
+      ['spacing', 1, 2, -45], ['spacing', 5, 6, -45],
+      ['spacing', 0, 1, -45], ['spacing', 6, 7, -45],
+    ]), JSON.stringify(mixedWidth.calls));
+    const fullwidthLatin = textNode('全角英文不是标点', '中Ａ文');
+    await applyFontMix([fullwidthLatin], cfg({ symbolFontSide: 'cn' }));
+    ok('全角英文不触发成对标点缩进', fullwidthLatin.calls.filter((c) => c[0] === 'spacing').length === 0, JSON.stringify(fullwidthLatin.calls));
     const routedEn = textNode('符号按钮不影响中文输入法标点', '中（A）文');
     await applyFontMix([routedEn], cfg({ symbolFontSide: 'en' }));
     ok('符号字体按钮不影响中文输入法标点缩进', routedEn.calls.filter((c) => c[0] === 'spacing').length === 2, JSON.stringify(routedEn.calls));
     const exact = textNode('截图复现', '哑光「大子{}[]弹头」I  ');
     await applyFontMix([exact], cfg({ symbolFontSide: 'en' }));
     const exactSpacing = exact.calls.filter((c) => c[0] === 'spacing');
-    ok('截图复现：只调整中文外层「」的外侧间距', JSON.stringify(exactSpacing) === JSON.stringify([
+    ok('截图复现：中文外层调整，英文成对符号归零', JSON.stringify(exactSpacing) === JSON.stringify([
+      ['spacing', 4, 5, 0], ['spacing', 6, 7, 0],
+      ['spacing', 6, 7, 0], ['spacing', 8, 9, 0],
       ['spacing', 1, 2, -45],
       ['spacing', 11, 12, -45],
     ]), JSON.stringify(exactSpacing));
@@ -138,6 +193,12 @@ const fontCalls = (n) => n.calls.filter((c) => c[0] === 'font');
     ok('成功 2 个、失败 1 个', r.ok === 2 && r.failed.length === 1, JSON.stringify({ ok: r.ok, failed: r.failed }));
     ok('失败项带节点名与原因', r.failed[0].name === 'B' && /boom/.test(r.failed[0].reason), JSON.stringify(r.failed[0]));
     ok('后续节点仍被处理（中文abc = 中/英 两段）', fontCalls(c).length === 2, JSON.stringify(fontCalls(c)));
+  }
+  {
+    const n = textNode('多行与区间容错', '中文abc\n中文def', { throwRangeAt: [2, 6] });
+    const r = await applyFontMix([n], cfg({ applyColors: true, cnColor: { r: 1, g: 0, b: 0 }, enColor: { r: 0, g: 0, b: 1 } }));
+    ok('多行文本继续处理后续区间', r.ok === 0 && r.failed.length === 1 && n.calls.filter(c => c[0] === 'fill').length >= 3,
+      JSON.stringify({ result: r, fills: n.calls.filter(c => c[0] === 'fill') }));
   }
 
   console.log('=== 4. 边界：空文本 / 空选区 ===');

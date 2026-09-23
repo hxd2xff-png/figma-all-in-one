@@ -976,7 +976,7 @@
     setTimeout(requestFontList, 0);
     requestResize();   // 插件打开时先贴合一次当前页高度
 
-    $('#kerning-apply').addEventListener('click', () => { $('#kerning-status').textContent = '处理中…'; send({ type: 'auto-kerning', pairedOuterValue: parseFloat($('#kerning-outer').value) || -45 }); });
+    $('#kerning-apply').addEventListener('click', () => { const parsed = parseFloat($('#kerning-outer').value); $('#kerning-status').textContent = '处理中…'; send({ type: 'auto-kerning', pairedOuterValue: Number.isFinite(parsed) ? parsed : -45 }); });
 
     // 主进程回传的持久化方案：以它为准覆盖内存态并重绘
     function applyStoredPresets(data) {
@@ -1083,6 +1083,7 @@
       if (msg.strokeAlign) { $('#stroke-align').value = msg.strokeAlign; syncAlignDisplay(); }
       $('#shadow-on').checked = !!msg.shadowOn;
       if (msg.shadow) {
+        shadowOpacity = msg.shadow.color && msg.shadow.color.a != null ? msg.shadow.color.a : 1;
         $('#shadow-color').value = rgbToHex(msg.shadow.color);
         $('#shadow-x').value = msg.shadow.offsetX != null ? msg.shadow.offsetX : '';
         $('#shadow-y').value = msg.shadow.offsetY != null ? msg.shadow.offsetY : '';
@@ -1128,14 +1129,15 @@
     // UI 内部用 hex + 百分比存色标，方便表单与颜色控件
     const paintUI = {
       fill: {
-        mode: 'solid', type: 'GRADIENT_LINEAR', angle: 0,
-        stops: [{ color: '#FF9161', pos: 0 }, { color: '#FF5A2B', pos: 100 }],
+        mode: 'solid', opacity: 1, type: 'GRADIENT_LINEAR', angle: 0,
+        stops: [{ color: '#FF9161', alpha: 1, pos: 0 }, { color: '#FF5A2B', alpha: 1, pos: 100 }],
       },
       stroke: {
-        mode: 'solid', type: 'GRADIENT_LINEAR', angle: 0,
-        stops: [{ color: '#111827', pos: 0 }, { color: '#6B7280', pos: 100 }],
+        mode: 'solid', opacity: 1, type: 'GRADIENT_LINEAR', angle: 0,
+        stops: [{ color: '#111827', alpha: 1, pos: 0 }, { color: '#6B7280', alpha: 1, pos: 100 }],
       },
     };
+    let shadowOpacity = 1;
     const clampPct = (n) => (isNaN(n) ? 0 : n < 0 ? 0 : n > 100 ? 100 : n);
     const norm360 = (a) => (((Number(a) || 0) % 360) + 360) % 360;
     const to255 = (hex) => { const c = hexToRgb(hex); return [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255)]; };
@@ -1205,7 +1207,7 @@
           pos = Math.round((sorted[best].pos + sorted[best + 1].pos) / 2);
         }
         const near = sorted.reduce((p, c) => (Math.abs(c.pos - pos) < Math.abs(p.pos - pos) ? c : p), sorted[0]);
-        st.stops.push({ color: near.color, pos });
+        st.stops.push({ color: near.color, alpha: near.alpha == null ? 1 : near.alpha, pos });
         renderStops(key);
         renderGradient(key);
       });
@@ -1362,7 +1364,7 @@
     function readPaintConfig(key) {
       const st = paintUI[key];
       if (st.mode === 'solid') {
-        return { kind: 'solid', color: hexToRgb($('#' + key + '-color').value) };
+        return { kind: 'solid', color: hexToRgb($('#' + key + '-color').value), opacity: st.opacity == null ? 1 : st.opacity };
       }
       return {
         kind: 'gradient',
@@ -1370,7 +1372,7 @@
           gradientType: st.type,
           angle: norm360(st.angle),
           stops: st.stops.map((s) => ({
-            color: hexToRgba(s.color),
+            color: Object.assign(hexToRgb(s.color), { a: s.alpha == null ? 1 : s.alpha }),
             position: clampPct(s.pos) / 100,
           })),
         },
@@ -1387,13 +1389,15 @@
         st.angle = norm360(cfg.gradient.angle);
         st.stops = (cfg.gradient.stops || []).map((s) => ({
           color: rgbToHex(s.color),
+          alpha: s.color && s.color.a == null ? 1 : (s.color ? s.color.a : 1),
           pos: Math.round(clampPct((s.position == null ? 0 : s.position) * 100)),
         }));
         if (st.stops.length < 2) {
-          st.stops = [{ color: '#FFFFFF', pos: 0 }, { color: '#000000', pos: 100 }];
+          st.stops = [{ color: '#FFFFFF', alpha: 1, pos: 0 }, { color: '#000000', alpha: 1, pos: 100 }];
         }
       } else {
         st.mode = 'solid';
+        st.opacity = cfg.opacity == null ? 1 : cfg.opacity;
         if (cfg.color) $('#' + key + '-color').value = rgbToHex(cfg.color);
       }
       syncPaintMode(key);
@@ -1716,6 +1720,7 @@
         cnColor: hexToRgb($('#cn-color').value),
         enColor: hexToRgb($('#en-color').value),
         symbolFontSide,
+        pairedOuterValue: Number.isFinite(parseFloat($('#kerning-outer').value)) ? parseFloat($('#kerning-outer').value) : -45,
         applyColors,
       };
       send({ type: 'font-mixer', config: cfg });
@@ -2007,7 +2012,7 @@
         strokeAlign: $('#stroke-align').value,
         shadowOn: $('#shadow-on').checked,
         shadow: {
-          color: hexToRgba($('#shadow-color').value),
+          color: Object.assign(hexToRgb($('#shadow-color').value), { a: shadowOpacity }),
           offsetX: parseFloat($('#shadow-x').value) || 0,
           offsetY: parseFloat($('#shadow-y').value) || 0,
           blur: parseFloat($('#shadow-blur').value) || 0,
@@ -2113,6 +2118,7 @@
       }
       $('#shadow-on').checked = !!p.shadowOn;
       if (p.shadow) {
+        shadowOpacity = p.shadow.color && p.shadow.color.a != null ? p.shadow.color.a : 1;
         $('#shadow-color').value = rgbToHex(p.shadow.color);
         $('#shadow-x').value = p.shadow.offsetX != null ? p.shadow.offsetX : '';
         $('#shadow-y').value = p.shadow.offsetY != null ? p.shadow.offsetY : '';
@@ -2223,7 +2229,7 @@
         strokeWeight: $('#stroke-on').checked ? (parseFloat($('#stroke-weight').value) || 0) : null,
         strokeAlign: $('#stroke-on').checked ? $('#stroke-align').value : null,
         shadow: $('#shadow-on').checked ? {
-          color: hexToRgba($('#shadow-color').value),
+          color: Object.assign(hexToRgb($('#shadow-color').value), { a: shadowOpacity }),
           offsetX: parseFloat($('#shadow-x').value) || 0,
           offsetY: parseFloat($('#shadow-y').value) || 0,
           blur: parseFloat($('#shadow-blur').value) || 0,
@@ -2291,8 +2297,9 @@
     // 单个分片：JPG / WebP 用 canvas 重编码控制质量（Figma API 无 quality 参数），PNG 原样保留
     async function handleChunk(msg) {
       const ext = msg.format === 'JPG' ? 'jpg' : msg.format === 'WEBP' ? 'webp' : 'png';
+      const srcMime = msg.format === 'JPG' ? 'image/jpeg' : msg.format === 'WEBP' ? 'image/png' : 'image/png';
       const mime = msg.format === 'JPG' ? 'image/jpeg' : msg.format === 'WEBP' ? 'image/webp' : 'image/png';
-      const src = new Blob([msg.bytes], { type: mime });
+      const src = new Blob([msg.bytes], { type: srcMime });
       let out = src;
       if (msg.format !== 'PNG') {
         try {

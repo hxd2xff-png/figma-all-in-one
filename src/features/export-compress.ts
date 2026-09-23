@@ -81,7 +81,9 @@ export async function exportNodes(
     let bytes: Uint8Array;
     try {
       bytes = await (node as any).exportAsync({
-        format: cfg.format,
+        // Figma exportAsync does not support WEBP; export PNG first and let the
+        // UI canvas perform the requested WebP encoding.
+        format: cfg.format === 'WEBP' ? 'PNG' : cfg.format,
         constraint: { type: 'SCALE', value: cfg.scale },
       });
     } catch (e) {

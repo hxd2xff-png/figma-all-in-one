@@ -17,13 +17,57 @@
   function isRomanNumeral(ch) {
     return /[\u2160-\u2188]/u.test(ch);
   }
+  var ASCII_ROMAN_TOKEN = /^(?:M{0,4}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3}))$/;
+  function isAsciiRomanNumeralAt(text, index) {
+    if (!/[IVXLCDM]/.test(text[index] || "")) return false;
+    let start = index;
+    while (start > 0 && /[IVXLCDM]/.test(text[start - 1])) start--;
+    let end = index + 1;
+    while (end < text.length && /[IVXLCDM]/.test(text[end])) end++;
+    const token = text.slice(start, end);
+    if (!ASCII_ROMAN_TOKEN.test(token) || !/[IVX]/.test(token)) return false;
+    const prev = start > 0 ? text[start - 1] : "";
+    const next = end < text.length ? text[end] : "";
+    if (/[A-Za-z]/.test(prev) || /[A-Za-z]/.test(next)) return false;
+    if (token.length === 1 && !isCJK(prev) && !isCJK(next) && !/[0-9]/.test(prev + next)) return false;
+    return true;
+  }
   function isChineseSide(ch, symbolFontSide) {
     if (isRomanNumeral(ch)) return true;
     if (symbolFontSide && isSymbol(ch)) return symbolFontSide === "cn";
     return isCJK(ch);
   }
-  function applyChinesePairSpacing(node, symbolFontSide) {
-    const pairs = { "(": ")", "[": "]", "{": "}", "（": "）", "［": "］", "【": "】", "《": "》", "〈": "〉", "“": "”", "‘": "’", "「": "」", "『": "』", "｛": "｝" };
+  function isChineseSideAt(text, index, symbolFontSide) {
+    const ch = String.fromCodePoint(text.codePointAt(index));
+    if (isRomanNumeral(ch) || isAsciiRomanNumeralAt(text, index)) return true;
+    return isChineseSide(ch, symbolFontSide);
+  }
+  function applyChinesePairSpacing(node, symbolFontSide, pairedOuterValue = -45) {
+    const pairs = {
+      "(": ")",
+      "[": "]",
+      "{": "}",
+      "（": "）",
+      "［": "］",
+      "｛": "｝",
+      "＜": "＞",
+      "【": "】",
+      "〔": "〕",
+      "〖": "〗",
+      "〘": "〙",
+      "〚": "〛",
+      "《": "》",
+      "〈": "〉",
+      "“": "”",
+      "‘": "’",
+      "「": "」",
+      "『": "』",
+      "﹁": "﹂",
+      "﹃": "﹄",
+      "﹙": "﹚",
+      "﹛": "﹜",
+      "﹝": "﹞"
+    };
     const stack = [];
     const matched = [];
     const text = node.characters || "";
@@ -32,9 +76,9 @@
       else if (stack.length && pairs[stack[stack.length - 1].ch] === text[i]) matched.push([stack.pop().index, i]);
     }
     for (const [open, close] of matched) {
-      if (!isCJK(text[open]) || !isCJK(text[close])) continue;
-      if (open > 0) node.setRangeLetterSpacing(open - 1, open, { unit: "PERCENT", value: -45 });
-      if (close < text.length - 1) node.setRangeLetterSpacing(close, close + 1, { unit: "PERCENT", value: -45 });
+      const value = isCJK(text[open]) && isCJK(text[close]) ? pairedOuterValue : 0;
+      if (open > 0) node.setRangeLetterSpacing(open - 1, open, { unit: "PERCENT", value });
+      if (close < text.length - 1) node.setRangeLetterSpacing(close, close + 1, { unit: "PERCENT", value });
     }
   }
   var FONT_LOAD_TIMEOUT_MS = 4e3;
@@ -108,19 +152,39 @@
           continue;
         }
         node.fontName = cfg.cnFont;
+        const rangeErrors = [];
+        const applySafe = (start2, end, cjk) => {
+          try {
+            applyRange(node, start2, end, cjk, cfg);
+          } catch (e) {
+            rangeErrors.push(`${start2}-${end}: ${errText(e)}`);
+          }
+        };
         let start = 0;
-        let prev = isChineseSide(text[0], cfg.symbolFontSide);
-        for (let i = 1; i < text.length; i++) {
-          const cur = isChineseSide(text[i], cfg.symbolFontSide);
+        const first = String.fromCodePoint(text.codePointAt(0));
+        let prev = isChineseSideAt(text, 0, cfg.symbolFontSide);
+        for (let i = first.length; i < text.length; ) {
+          const ch = String.fromCodePoint(text.codePointAt(i));
+          const end = i + ch.length;
+          const cur = isChineseSideAt(text, i, cfg.symbolFontSide);
           if (cur !== prev) {
-            applyRange(node, start, i, prev, cfg);
+            applySafe(start, i, prev);
             prev = cur;
             start = i;
           }
+          i = end;
         }
-        applyRange(node, start, text.length, prev, cfg);
-        applyChinesePairSpacing(node, cfg.symbolFontSide);
-        result.ok++;
+        applySafe(start, text.length, prev);
+        try {
+          applyChinesePairSpacing(node, cfg.symbolFontSide, Number.isFinite(cfg.pairedOuterValue) ? cfg.pairedOuterValue : -45);
+        } catch (e) {
+          rangeErrors.push(`spacing: ${errText(e)}`);
+        }
+        if (rangeErrors.length) {
+          result.failed.push({ name: node.name, reason: `部分区间应用失败（${rangeErrors.slice(0, 2).join("；")}${rangeErrors.length > 2 ? "…" : ""}）` });
+        } else {
+          result.ok++;
+        }
       } catch (e) {
         result.failed.push({ name: node.name, reason: errText(e) });
       }
@@ -129,7 +193,9 @@
   }
   function applyRange(node, start, end, cjk, cfg) {
     const font = cjk ? cfg.cnFont : cfg.enFont;
-    if (font && font.family) node.setRangeFontName(start, end, font);
+    if (font && font.family) {
+      node.setRangeFontName(start, end, font);
+    }
     const size = cjk ? cfg.cnSize : cfg.enSize;
     if (size != null) node.setRangeFontSize(start, end, size);
     if (cfg.applyColors) {
@@ -158,7 +224,7 @@
         const ch = String.fromCodePoint(text.codePointAt(i));
         const end = i + ch.length;
         if (!/\s/.test(ch)) {
-          const side = isCJK(ch) ? "cn" : "en";
+          const side = isChineseSideAt(text, i) ? "cn" : "en";
           if (!seen[side]) {
             try {
               const font = node.getRangeFontName(i, end);
@@ -268,11 +334,11 @@
   }
   function paintFromConfig(cfg) {
     if (cfg.kind === "gradient") return buildGradientPaint(cfg.gradient);
-    return { type: "SOLID", color: cfg.color };
+    return { type: "SOLID", color: cfg.color, opacity: cfg.opacity };
   }
   function readPaintConfig(p) {
     if (!p) return null;
-    if (p.type === "SOLID") return { kind: "solid", color: { ...p.color } };
+    if (p.type === "SOLID") return { kind: "solid", color: { ...p.color }, opacity: p.opacity == null ? 1 : p.opacity };
     if (p.type === "GRADIENT_LINEAR" || p.type === "GRADIENT_RADIAL" || p.type === "GRADIENT_ANGULAR" || p.type === "GRADIENT_DIAMOND") {
       return {
         kind: "gradient",
@@ -313,7 +379,7 @@
           visible: true,
           blendMode: "NORMAL"
         };
-        node.effects = [...node.effects, shadow];
+        node.effects = [...node.effects.filter((effect) => effect.type !== "DROP_SHADOW"), shadow];
       }
     }
   }
@@ -347,7 +413,9 @@
       let bytes;
       try {
         bytes = await node.exportAsync({
-          format: cfg.format,
+          // Figma exportAsync does not support WEBP; export PNG first and let the
+          // UI canvas perform the requested WebP encoding.
+          format: cfg.format === "WEBP" ? "PNG" : cfg.format,
           constraint: { type: "SCALE", value: cfg.scale }
         });
       } catch (e) {
@@ -499,7 +567,31 @@
     if (!text || text.length < 2) return { applied: 0, skipped: 0 };
     let applied = 0;
     let skipped = 0;
-    const pairs = { "(": ")", "[": "]", "{": "}", "（": "）", "［": "］", "【": "】", "《": "》", "〈": "〉", "“": "”", "‘": "’", "「": "」", "『": "』", "｛": "｝" };
+    const pairs = {
+      "(": ")",
+      "[": "]",
+      "{": "}",
+      "（": "）",
+      "［": "］",
+      "｛": "｝",
+      "＜": "＞",
+      "【": "】",
+      "〔": "〕",
+      "〖": "〗",
+      "〘": "〙",
+      "〚": "〛",
+      "《": "》",
+      "〈": "〉",
+      "“": "”",
+      "‘": "’",
+      "「": "」",
+      "『": "』",
+      "﹁": "﹂",
+      "﹃": "﹄",
+      "﹙": "﹚",
+      "﹛": "﹜",
+      "﹝": "﹞"
+    };
     const stack = [];
     const matched = [];
     for (let i = 0; i < text.length; i++) {
@@ -515,27 +607,39 @@
       pairedIndexes.add(open);
       pairedIndexes.add(close);
     }
-    for (let i = 0; i < text.length - 1; i++) {
-      const ch = text[i];
+    for (let i = 0; i < text.length; ) {
+      const ch = String.fromCodePoint(text.codePointAt(i));
+      const end = i + ch.length;
+      if (end >= text.length) {
+        skipped++;
+        i = end;
+        continue;
+      }
       if (/\s/.test(ch)) {
         skipped++;
+        i = end;
         continue;
       }
       const isSymbol2 = /[\p{P}\p{S}]/u.test(ch);
       if (!isSymbol2 || pairedIndexes.has(i) || excludedStandalone.has(ch)) {
         skipped++;
+        i = end;
         continue;
       }
-      node.setRangeLetterSpacing(i, i + 1, { unit: "PERCENT", value: -30 });
+      node.setRangeLetterSpacing(i, end, { unit: "PERCENT", value: -30 });
       applied++;
+      i = end;
     }
     for (const [open, close] of matched) {
+      const value = /[\u3000-\u303F\uFF00-\uFFEF]/u.test(text[open]) && /[\u3000-\u303F\uFF00-\uFFEF]/u.test(text[close]) ? pairedOuterValue : 0;
       if (open > 0) {
-        node.setRangeLetterSpacing(open - 1, open, { unit: "PERCENT", value: pairedOuterValue });
+        const prevStart = open > 1 && /[\uD800-\uDBFF]/.test(text[open - 2]) ? open - 2 : open - 1;
+        node.setRangeLetterSpacing(prevStart, open, { unit: "PERCENT", value });
         applied++;
       }
-      if (close < text.length - 1) {
-        node.setRangeLetterSpacing(close, close + 1, { unit: "PERCENT", value: pairedOuterValue });
+      const closeEnd = close + (close + 1 < text.length && /[\uD800-\uDBFF]/.test(text[close + 1]) ? 2 : 1);
+      if (closeEnd < text.length) {
+        node.setRangeLetterSpacing(close, closeEnd, { unit: "PERCENT", value });
         applied++;
       }
     }
@@ -1546,7 +1650,7 @@
     setTimeout(requestFontList, 0);\r
     requestResize();   // 插件打开时先贴合一次当前页高度\r
 \r
-    $('#kerning-apply').addEventListener('click', () => { $('#kerning-status').textContent = '处理中…'; send({ type: 'auto-kerning', pairedOuterValue: parseFloat($('#kerning-outer').value) || -45 }); });\r
+    $('#kerning-apply').addEventListener('click', () => { const parsed = parseFloat($('#kerning-outer').value); $('#kerning-status').textContent = '处理中…'; send({ type: 'auto-kerning', pairedOuterValue: Number.isFinite(parsed) ? parsed : -45 }); });
 \r
     // 主进程回传的持久化方案：以它为准覆盖内存态并重绘\r
     function applyStoredPresets(data) {\r
@@ -1651,9 +1755,10 @@
       if (msg.stroke) setPaintConfig('stroke', msg.stroke);\r
       $('#stroke-weight').value = msg.strokeWeight != null ? msg.strokeWeight : '';\r
       if (msg.strokeAlign) { $('#stroke-align').value = msg.strokeAlign; syncAlignDisplay(); }\r
-      $('#shadow-on').checked = !!msg.shadowOn;\r
-      if (msg.shadow) {\r
-        $('#shadow-color').value = rgbToHex(msg.shadow.color);\r
+      $('#shadow-on').checked = !!msg.shadowOn;
+      if (msg.shadow) {
+        shadowOpacity = msg.shadow.color && msg.shadow.color.a != null ? msg.shadow.color.a : 1;
+        $('#shadow-color').value = rgbToHex(msg.shadow.color);
         $('#shadow-x').value = msg.shadow.offsetX != null ? msg.shadow.offsetX : '';\r
         $('#shadow-y').value = msg.shadow.offsetY != null ? msg.shadow.offsetY : '';\r
         $('#shadow-blur').value = msg.shadow.blur != null ? msg.shadow.blur : '';\r
@@ -1698,14 +1803,15 @@
     // UI 内部用 hex + 百分比存色标，方便表单与颜色控件\r
     const paintUI = {\r
       fill: {\r
-        mode: 'solid', type: 'GRADIENT_LINEAR', angle: 0,\r
-        stops: [{ color: '#FF9161', pos: 0 }, { color: '#FF5A2B', pos: 100 }],\r
+        mode: 'solid', opacity: 1, type: 'GRADIENT_LINEAR', angle: 0,
+        stops: [{ color: '#FF9161', alpha: 1, pos: 0 }, { color: '#FF5A2B', alpha: 1, pos: 100 }],
       },\r
       stroke: {\r
-        mode: 'solid', type: 'GRADIENT_LINEAR', angle: 0,\r
-        stops: [{ color: '#111827', pos: 0 }, { color: '#6B7280', pos: 100 }],\r
+        mode: 'solid', opacity: 1, type: 'GRADIENT_LINEAR', angle: 0,
+        stops: [{ color: '#111827', alpha: 1, pos: 0 }, { color: '#6B7280', alpha: 1, pos: 100 }],
       },\r
-    };\r
+    };
+    let shadowOpacity = 1;
     const clampPct = (n) => (isNaN(n) ? 0 : n < 0 ? 0 : n > 100 ? 100 : n);\r
     const norm360 = (a) => (((Number(a) || 0) % 360) + 360) % 360;\r
     const to255 = (hex) => { const c = hexToRgb(hex); return [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255)]; };\r
@@ -1775,7 +1881,7 @@
           pos = Math.round((sorted[best].pos + sorted[best + 1].pos) / 2);\r
         }\r
         const near = sorted.reduce((p, c) => (Math.abs(c.pos - pos) < Math.abs(p.pos - pos) ? c : p), sorted[0]);\r
-        st.stops.push({ color: near.color, pos });\r
+        st.stops.push({ color: near.color, alpha: near.alpha == null ? 1 : near.alpha, pos });
         renderStops(key);\r
         renderGradient(key);\r
       });\r
@@ -1932,7 +2038,7 @@
     function readPaintConfig(key) {\r
       const st = paintUI[key];\r
       if (st.mode === 'solid') {\r
-        return { kind: 'solid', color: hexToRgb($('#' + key + '-color').value) };\r
+        return { kind: 'solid', color: hexToRgb($('#' + key + '-color').value), opacity: st.opacity == null ? 1 : st.opacity };
       }\r
       return {\r
         kind: 'gradient',\r
@@ -1940,7 +2046,7 @@
           gradientType: st.type,\r
           angle: norm360(st.angle),\r
           stops: st.stops.map((s) => ({\r
-            color: hexToRgba(s.color),\r
+            color: Object.assign(hexToRgb(s.color), { a: s.alpha == null ? 1 : s.alpha }),
             position: clampPct(s.pos) / 100,\r
           })),\r
         },\r
@@ -1956,15 +2062,17 @@
         st.type = cfg.gradient.gradientType || 'GRADIENT_LINEAR';\r
         st.angle = norm360(cfg.gradient.angle);\r
         st.stops = (cfg.gradient.stops || []).map((s) => ({\r
-          color: rgbToHex(s.color),\r
+          color: rgbToHex(s.color),
+          alpha: s.color && s.color.a == null ? 1 : (s.color ? s.color.a : 1),
           pos: Math.round(clampPct((s.position == null ? 0 : s.position) * 100)),\r
         }));\r
         if (st.stops.length < 2) {\r
-          st.stops = [{ color: '#FFFFFF', pos: 0 }, { color: '#000000', pos: 100 }];\r
+          st.stops = [{ color: '#FFFFFF', alpha: 1, pos: 0 }, { color: '#000000', alpha: 1, pos: 100 }];
         }\r
       } else {\r
-        st.mode = 'solid';\r
-        if (cfg.color) $('#' + key + '-color').value = rgbToHex(cfg.color);\r
+        st.mode = 'solid';
+        st.opacity = cfg.opacity == null ? 1 : cfg.opacity;
+        if (cfg.color) $('#' + key + '-color').value = rgbToHex(cfg.color);
       }\r
       syncPaintMode(key);\r
       const gt = $('#' + key + '-gtype');\r
@@ -2286,6 +2394,7 @@
         cnColor: hexToRgb($('#cn-color').value),
         enColor: hexToRgb($('#en-color').value),
         symbolFontSide,
+        pairedOuterValue: Number.isFinite(parseFloat($('#kerning-outer').value)) ? parseFloat($('#kerning-outer').value) : -45,
         applyColors,
       };
       send({ type: 'font-mixer', config: cfg });
@@ -2577,7 +2686,7 @@
         strokeAlign: $('#stroke-align').value,\r
         shadowOn: $('#shadow-on').checked,\r
         shadow: {\r
-          color: hexToRgba($('#shadow-color').value),\r
+          color: Object.assign(hexToRgb($('#shadow-color').value), { a: shadowOpacity }),
           offsetX: parseFloat($('#shadow-x').value) || 0,\r
           offsetY: parseFloat($('#shadow-y').value) || 0,\r
           blur: parseFloat($('#shadow-blur').value) || 0,\r
@@ -2681,9 +2790,10 @@
         $('#stroke-align').value = p.strokeAlign;\r
         syncAlignDisplay();\r
       }\r
-      $('#shadow-on').checked = !!p.shadowOn;\r
-      if (p.shadow) {\r
-        $('#shadow-color').value = rgbToHex(p.shadow.color);\r
+      $('#shadow-on').checked = !!p.shadowOn;
+      if (p.shadow) {
+        shadowOpacity = p.shadow.color && p.shadow.color.a != null ? p.shadow.color.a : 1;
+        $('#shadow-color').value = rgbToHex(p.shadow.color);
         $('#shadow-x').value = p.shadow.offsetX != null ? p.shadow.offsetX : '';\r
         $('#shadow-y').value = p.shadow.offsetY != null ? p.shadow.offsetY : '';\r
         $('#shadow-blur').value = p.shadow.blur != null ? p.shadow.blur : '';\r
@@ -2793,7 +2903,7 @@
         strokeWeight: $('#stroke-on').checked ? (parseFloat($('#stroke-weight').value) || 0) : null,\r
         strokeAlign: $('#stroke-on').checked ? $('#stroke-align').value : null,\r
         shadow: $('#shadow-on').checked ? {\r
-          color: hexToRgba($('#shadow-color').value),\r
+          color: Object.assign(hexToRgb($('#shadow-color').value), { a: shadowOpacity }),
           offsetX: parseFloat($('#shadow-x').value) || 0,\r
           offsetY: parseFloat($('#shadow-y').value) || 0,\r
           blur: parseFloat($('#shadow-blur').value) || 0,\r
@@ -2861,8 +2971,9 @@
     // 单个分片：JPG / WebP 用 canvas 重编码控制质量（Figma API 无 quality 参数），PNG 原样保留\r
     async function handleChunk(msg) {\r
       const ext = msg.format === 'JPG' ? 'jpg' : msg.format === 'WEBP' ? 'webp' : 'png';\r
-      const mime = msg.format === 'JPG' ? 'image/jpeg' : msg.format === 'WEBP' ? 'image/webp' : 'image/png';\r
-      const src = new Blob([msg.bytes], { type: mime });\r
+      const srcMime = msg.format === 'JPG' ? 'image/jpeg' : msg.format === 'WEBP' ? 'image/png' : 'image/png';
+      const mime = msg.format === 'JPG' ? 'image/jpeg' : msg.format === 'WEBP' ? 'image/webp' : 'image/png';
+      const src = new Blob([msg.bytes], { type: srcMime });
       let out = src;\r
       if (msg.format !== 'PNG') {\r
         try {\r

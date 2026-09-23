@@ -32,7 +32,7 @@ export interface GradientConfig {
 
 // 填充/描边统一用「纯色 or 渐变」二选一
 export type PaintConfig =
-  | { kind: 'solid'; color: RGB }
+  | { kind: 'solid'; color: RGB; opacity?: number }
   | { kind: 'gradient'; gradient: GradientConfig };
 
 export interface ShadowConfig {
@@ -126,13 +126,13 @@ export function buildGradientPaint(g: GradientConfig): GradientPaint {
 // 配置 → Figma Paint
 export function paintFromConfig(cfg: PaintConfig): Paint {
   if (cfg.kind === 'gradient') return buildGradientPaint(cfg.gradient);
-  return { type: 'SOLID', color: cfg.color } as SolidPaint;
+  return { type: 'SOLID', color: cfg.color, opacity: cfg.opacity } as SolidPaint;
 }
 
 // Figma Paint → 配置（识别选中图层用；图片/视频填充返回 null）
 export function readPaintConfig(p: Paint | undefined | null): PaintConfig | null {
   if (!p) return null;
-  if (p.type === 'SOLID') return { kind: 'solid', color: { ...p.color } };
+  if (p.type === 'SOLID') return { kind: 'solid', color: { ...p.color }, opacity: p.opacity == null ? 1 : p.opacity };
   if (
     p.type === 'GRADIENT_LINEAR' ||
     p.type === 'GRADIENT_RADIAL' ||
@@ -175,7 +175,7 @@ export function applyStyles(nodes: SceneNode[], cfg: StyleConfig): void {
       }
     }
 
-    // 阴影（追加一条 DROP_SHADOW）
+    // 阴影：替换本工具管理的 DROP_SHADOW，保留其它效果，避免重复应用不断累积。
     if (cfg.shadow && 'effects' in node) {
       const shadow = {
         type: 'DROP_SHADOW',
@@ -186,7 +186,7 @@ export function applyStyles(nodes: SceneNode[], cfg: StyleConfig): void {
         visible: true,
         blendMode: 'NORMAL',
       } as Effect;
-      node.effects = [...(node.effects as Effect[]), shadow];
+      node.effects = [...(node.effects as Effect[]).filter((effect) => effect.type !== 'DROP_SHADOW'), shadow];
     }
   }
 }
