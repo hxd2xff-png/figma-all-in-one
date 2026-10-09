@@ -211,10 +211,16 @@
     if (size != null) node.setRangeFontSize(start, end, size);
     if (cfg.applyColors) {
       const color = cjk ? cfg.cnColor : cfg.enColor;
-      if (color != null) node.setRangeFills(start, end, [{ type: "SOLID", color }]);
+      if (color != null) node.setRangeFills(start, end, [{
+        type: "SOLID",
+        color: { r: color.r, g: color.g, b: color.b },
+        opacity: color.a == null ? 1 : Math.max(0, Math.min(1, color.a)),
+        blendMode: color.blendMode || "NORMAL"
+      }]);
     }
   }
   function detectFontMix(input) {
+    var _a;
     const out = {
       cnFont: null,
       enFont: null,
@@ -246,7 +252,7 @@
               const fills = node.getRangeFills(i, end);
               if (Array.isArray(fills)) {
                 const solid = fills.find((p) => p.type === "SOLID");
-                if (solid) out[`${side}Color`] = solid.color;
+                if (solid) out[`${side}Color`] = { ...solid.color, a: (_a = solid.opacity) != null ? _a : 1, blendMode: solid.blendMode || "NORMAL" };
               }
             } catch {
             }
@@ -293,6 +299,21 @@
   }
 
   // src/features/bulk-styles.ts
+  function removeStyles(nodes, styles) {
+    const effectTypes = {
+      shadow: "DROP_SHADOW",
+      innerShadow: "INNER_SHADOW",
+      layerBlur: "LAYER_BLUR",
+      backgroundBlur: "BACKGROUND_BLUR"
+    };
+    const types = new Set(styles.map((style) => effectTypes[style]).filter(Boolean));
+    for (const node of nodes) {
+      if (styles.includes("fill") && "fills" in node) node.fills = [];
+      if (styles.includes("stroke") && "strokes" in node) node.strokes = [];
+      if (styles.includes("cornerRadius") && "cornerRadius" in node) node.cornerRadius = 0;
+      if (types.size && "effects" in node) node.effects = node.effects.filter((effect) => !types.has(effect.type));
+    }
+  }
   function clamp01(n) {
     if (!isFinite(n)) return 0;
     return n < 0 ? 0 : n > 1 ? 1 : n;
@@ -344,15 +365,18 @@
     };
   }
   function paintFromConfig(cfg) {
-    if (cfg.kind === "gradient") return buildGradientPaint(cfg.gradient);
-    return { type: "SOLID", color: cfg.color, opacity: cfg.opacity };
+    const properties = { opacity: cfg.opacity == null ? 1 : clamp01(cfg.opacity), blendMode: cfg.blendMode || "NORMAL" };
+    if (cfg.kind === "gradient") return { ...buildGradientPaint(cfg.gradient), ...properties };
+    return { type: "SOLID", color: cfg.color, ...properties };
   }
   function readPaintConfig(p) {
     if (!p) return null;
-    if (p.type === "SOLID") return { kind: "solid", color: { ...p.color }, opacity: p.opacity == null ? 1 : p.opacity };
+    const properties = { opacity: p.opacity == null ? 1 : p.opacity, blendMode: p.blendMode || "NORMAL" };
+    if (p.type === "SOLID") return { kind: "solid", color: { ...p.color }, ...properties };
     if (p.type === "GRADIENT_LINEAR" || p.type === "GRADIENT_RADIAL" || p.type === "GRADIENT_ANGULAR" || p.type === "GRADIENT_DIAMOND") {
       return {
         kind: "gradient",
+        ...properties,
         gradient: {
           gradientType: p.type,
           angle: angleFromTransform(p.gradientTransform),
@@ -366,6 +390,8 @@
     return null;
   }
   function applyStyles(nodes, cfg) {
+    var _a;
+    if ((_a = cfg.remove) == null ? void 0 : _a.length) removeStyles(nodes, cfg.remove);
     for (const node of nodes) {
       if (cfg.fill && "fills" in node) {
         node.fills = [paintFromConfig(cfg.fill)];
@@ -380,17 +406,26 @@
           node.strokeAlign = cfg.strokeAlign;
         }
       }
-      if (cfg.shadow && "effects" in node) {
-        const shadow = {
-          type: "DROP_SHADOW",
-          color: cfg.shadow.color,
-          offset: { x: cfg.shadow.offsetX, y: cfg.shadow.offsetY },
-          radius: cfg.shadow.blur,
-          spread: cfg.shadow.spread,
-          visible: true,
-          blendMode: "NORMAL"
-        };
-        node.effects = [...node.effects.filter((effect) => effect.type !== "DROP_SHADOW"), shadow];
+      if ("effects" in node) {
+        const replacements = [];
+        for (const [type, shadow] of [["DROP_SHADOW", cfg.shadow], ["INNER_SHADOW", cfg.innerShadow]]) {
+          if (shadow) replacements.push({
+            type,
+            color: { r: shadow.color.r, g: shadow.color.g, b: shadow.color.b, a: clamp01(shadow.color.a) },
+            offset: { x: shadow.offsetX, y: shadow.offsetY },
+            radius: Math.max(0, shadow.blur),
+            spread: shadow.spread,
+            visible: true,
+            blendMode: shadow.blendMode || "NORMAL"
+          });
+        }
+        for (const [type, blur] of [["LAYER_BLUR", cfg.layerBlur], ["BACKGROUND_BLUR", cfg.backgroundBlur]]) {
+          if (blur) replacements.push({ type, radius: Math.max(0, blur.radius), visible: true, blurType: "NORMAL" });
+        }
+        if (replacements.length) {
+          const types = new Set(replacements.map((effect) => effect.type));
+          node.effects = [...node.effects.filter((effect) => !types.has(effect.type)), ...replacements];
+        }
       }
     }
   }
@@ -926,6 +961,18 @@
       overflow-y: auto;\r
     }\r
     .dd-pop.open { display: block; animation: pop .16s ease; }\r
+    .dd-pop, .preset-pop {\r
+      background: rgba(255, 255, 255, .78);\r
+      backdrop-filter: blur(20px) saturate(150%);\r
+      -webkit-backdrop-filter: blur(20px) saturate(150%);\r
+      border-color: rgba(255, 255, 255, .72);\r
+    }\r
+    .dd.blend-dd { margin-top:8px; }\r
+    .paint-properties .dd.blend-dd { margin-top:0; }\r
+    .blend-dd .dd-trigger { padding:8px; background:var(--fill); border-radius:8px; font-size:12px; }\r
+    .blend-dd .dd-pop { z-index:10010; }\r
+    .blend-dd .dd-row { padding:8px 10px; font-size:12px; }\r
+    .blend-dd[hidden] { display:none; }\r
     /* 窄字段（如描边对齐）右侧对齐展开，并给最小宽度 */\r
     .dd-pop.align-right { left: auto; right: 0; min-width: 134px; }\r
     .dd-head {\r
@@ -1036,18 +1083,6 @@
     }\r
     ::placeholder { color: #BDB8B4; }\r
 \r
-    input[type="color"] {\r
-      width: 46px; height: 38px;\r
-      flex: none;\r
-      padding: 3px;\r
-      border: none;\r
-      border-radius: var(--r-input);\r
-      background: var(--fill);\r
-      cursor: pointer;\r
-    }\r
-    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }\r
-    input[type="color"]::-webkit-color-swatch { border: none; border-radius: 9px; }\r
-\r
     /* ---------- 纯色 / 渐变 分段控件（iOS segmented 同款） ---------- */\r
     .seg { display: flex; gap: 3px; background: var(--fill); border-radius: 11px; padding: 3px; }\r
     .seg-btn {\r
@@ -1074,8 +1109,6 @@
     .gp-dir:hover { background: #FFF6F2; border-color: var(--o-1); }\r
     .gp-dir.on { background: var(--o-2); border-color: var(--o-2); color: #fff; }\r
     .stop-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }\r
-    .stop-row input[type="color"] { width: 34px; height: 30px; padding: 2px; border-radius: 9px; }\r
-    .stop-row input[type="color"]::-webkit-color-swatch { border-radius: 7px; }\r
     .stop-pos {\r
       width: 54px; height: 30px; text-align: center;\r
       border: 1.5px solid transparent; border-radius: 9px;\r
@@ -1213,6 +1246,43 @@
     }\r
     .chip-btn:hover { border-color: #FFCDB8; color: var(--o-2); background: #FFF7F3; }\r
     .chip-btn:active { transform: translateY(1px); }\r
+
+    .style-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; align-items:stretch; margin-bottom:12px; }\r
+    .style-grid .card { display:flex; flex-direction:column; margin:0; padding:12px; min-width:0; min-height:50px; border-radius:14px; }\r
+    .style-grid .card.is-collapsed { align-self:start; height:50px; }\r
+    .style-grid .switch-row { min-height:24px; margin:0; }\r
+    .style-card-body[hidden] { display:none; }\r
+    .style-grid .row { flex-wrap:wrap; gap:6px; }
+    .style-grid .hint { display:none; }
+    .style-grid input { min-width:0; }
+    .style-grid .grow { flex-basis:45%; }
+    .style-grid .sw-txt { font-size:12px; }
+    .style-grid .stop-row { flex-wrap:wrap; gap:4px; }
+    .style-grid .stop-pos { width:44px; }
+    .paint-properties { display:grid; grid-template-columns:1fr; gap:6px; margin-top:8px; }
+    .paint-properties label, .effect-field { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--ink-3); }
+    .paint-properties input { width:58px; padding:6px; }
+    .paint-properties select { width:100%; padding:6px; border:1px solid var(--line); border-radius:8px; background:var(--fill); font:inherit; color:var(--ink); }
+    .effect-field { white-space:nowrap; flex-direction:column; align-items:stretch; gap:3px; }\r
+    .effect-field input { width:100%; min-width:0; padding:7px; }\r
+    .style-grid .effect-field { display:flex; flex-basis:45%; }\r
+    .color-chip { display:inline-flex; align-items:center; gap:5px; border:1px solid var(--line); background:var(--fill); border-radius:8px; padding:5px; font:inherit; cursor:pointer; min-width:0; max-width:100%; }
+    .color-chip i { width:22px; height:22px; flex:none; border-radius:4px; border:1px solid #0002; }
+    .color-chip span { font-size:10px; overflow:hidden; text-overflow:ellipsis; }
+    .color-dialog { position:fixed; inset:0; z-index:10000; background:#0003; display:flex; align-items:center; justify-content:center; padding:12px; }
+    .color-dialog[hidden] { display:none; }
+    .color-panel { width:280px; max-height:calc(100vh - 24px); overflow:auto; border-radius:14px; background:var(--card); padding:16px; box-shadow:0 16px 60px #0003; }
+    .color-panel header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; font-weight:600; }
+    .color-panel header button { border:0; background:var(--fill); border-radius:6px; padding:4px 9px; cursor:pointer; }
+    .color-spectrum { position:relative; height:160px; border-radius:8px; touch-action:none; cursor:crosshair; background:linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,transparent),hsl(var(--hue),100%,50%); }
+    .color-spectrum i { position:absolute; width:12px; height:12px; border:2px solid white; box-shadow:0 0 0 1px #0006; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; }
+    .color-panel input[type=range] { width:100%; margin:12px 0; }
+    .color-panel .color-hue { appearance:none; height:12px; border-radius:8px; background:linear-gradient(to right,red,#ff0,#0f0,#0ff,#00f,#f0f,red); }
+    .color-fields { display:grid; grid-template-columns:2fr 1fr; gap:8px; }
+    .color-fields label { font-size:11px; color:var(--ink-3); }
+    .color-fields input { width:100%; margin-top:4px; padding:8px; }
+    .color-panel select { width:100%; padding:8px; margin-top:8px; border:1px solid var(--line); border-radius:8px; background:var(--fill); }
+    .gp-preview { background:repeating-conic-gradient(#ddd 0% 25%,#fff 0% 50%) 0 / 12px 12px; }\r
   </style>\r
 </head>\r
 <body data-page-node-id="mGtn0qUxCwcNGIXj41gxRb">\r
@@ -1283,7 +1353,7 @@
           </div>\r
           <div class="field" data-page-node-id="GF37ISo8J8SEG1sndqV3l0">\r
             <label data-page-node-id="2IBcWBRLInPEpvqA5FWnzA">字色</label>\r
-            <input type="color" id="cn-color" value="#000000" data-page-node-id="86ZKluwVulGNFq6vHsMGxd" />\r
+            <input type="hidden" id="cn-color" value="#000000" data-page-node-id="86ZKluwVulGNFq6vHsMGxd" />\r
           </div>\r
         </div>\r
       </div>\r
@@ -1313,7 +1383,7 @@
           </div>\r
           <div class="field" data-page-node-id="l4FJjV3CvQQyAXPPeJgJhA">\r
             <label data-page-node-id="E8jgoRNeXXIVtM7h3Dse2C">字色</label>\r
-            <input type="color" id="en-color" value="#000000" data-page-node-id="3GpxfbLsTeVXqejgeFvwEg" />\r
+            <input type="hidden" id="en-color" value="#000000" data-page-node-id="3GpxfbLsTeVXqejgeFvwEg" />\r
           </div>\r
         </div>\r
       </div>\r
@@ -1369,7 +1439,7 @@
           <button type="button" class="seg-btn" data-v="gradient">渐变</button>\r
         </div>\r
         <div class="row" id="fill-solid" style="margin-top: 10px">\r
-          <input type="color" id="fill-color" value="#60a5fa" />\r
+          <input type="hidden" id="fill-color" value="#60a5fa" />\r
           <span class="hint" style="margin-top: 0">纯色填充，套用到所有选中图形</span>\r
         </div>\r
         <div id="fill-grad" style="display: none"></div>\r
@@ -1397,7 +1467,7 @@
           <button type="button" class="seg-btn" data-v="gradient">渐变</button>\r
         </div>\r
         <div class="row" id="stroke-solid" style="margin-top: 10px">\r
-          <input type="color" id="stroke-color" value="#111827" />\r
+          <input type="hidden" id="stroke-color" value="#111827" />\r
           <span class="hint" style="margin-top: 0">描边颜色</span>\r
         </div>\r
         <div id="stroke-grad" style="display: none"></div>\r
@@ -1429,10 +1499,10 @@
         <label class="switch-row" data-page-node-id="6ULc1BgoyBaP6xckaresvQ">\r
           <input type="checkbox" id="shadow-on" data-page-node-id="ry6VLPgiWKBWJSI1LAXRv1" />\r
           <span class="sw" data-page-node-id="xjy5qvsUDi3vMf1BzhzUXg"></span>\r
-          <span class="sw-txt" data-page-node-id="PqpX6qPo2N4jrOTd2nMdoG">投影 DROP_SHADOW</span>\r
+          <span class="sw-txt" data-page-node-id="PqpX6qPo2N4jrOTd2nMdoG">投影</span>\r
         </label>\r
         <div class="row" style="margin-top: 11px" data-page-node-id="rOUYGPGeH0OKNd9xaMcFLt">\r
-          <input type="color" id="shadow-color" value="#000000" data-page-node-id="3osXfEeHzaOk8mPZNOB1la" />\r
+          <input type="hidden" id="shadow-color" value="#000000" data-page-node-id="3osXfEeHzaOk8mPZNOB1la" />\r
           <div class="field grow" style="margin-bottom: 0" data-page-node-id="2tbXOLX8FybsPBAN2b3om6">\r
             <input type="number" id="shadow-x" placeholder="X" data-page-node-id="D0e5BYaTCTBhRWCceD0DxY" />\r
           </div>\r
@@ -1571,6 +1641,291 @@
   </main>\r
 \r
   <script>\r
+    // Shared color panel: font colors, paints, shadows and gradient stops.
+    const blendOptions = [
+      ['NORMAL','正常'],['DARKEN','变暗'],['MULTIPLY','正片叠底'],['COLOR_BURN','颜色加深'],['LINEAR_BURN','线性加深'],
+      ['LIGHTEN','变亮'],['SCREEN','滤色'],['COLOR_DODGE','颜色减淡'],['LINEAR_DODGE','线性减淡'],
+      ['OVERLAY','叠加'],['SOFT_LIGHT','柔光'],['HARD_LIGHT','强光'],['DIFFERENCE','差值'],['EXCLUSION','排除'],
+      ['HUE','色相'],['SATURATION','饱和度'],['COLOR','颜色'],['LUMINOSITY','明度'],
+    ];
+    let colorPanel = null, colorTarget = null, colorReturnFocus = null;
+    let colorHSV = { h: 0, s: 0, v: 0 };
+    function blendSelect(id) {
+      const select = document.createElement('select');
+      if (id) select.id = id;
+      select.setAttribute('aria-label', '混合模式');
+      blendOptions.forEach(([value, label]) => select.add(new Option(label, value)));
+      return select;
+    }
+    function installBlendDropdown(select) {\r
+      select.style.display = 'none';\r
+      const root = document.createElement('div');\r
+      root.className = 'dd blend-dd'; root.dataset.target = select.id;\r
+      root.innerHTML = '<button type="button" class="dd-trigger" aria-label="混合模式"><span class="dd-current"></span><span class="dd-caret">⌄</span></button><div class="dd-pop"><div class="dd-head">混合模式</div><div class="dd-list"></div></div>';\r
+      select.after(root);\r
+      ddRegistry[select.id] = initDropdown(root, { keepColorPanel: true, floating: true });\r
+      select.addEventListener('change', () => ddRegistry[select.id].syncDisplay());\r
+      return root;\r
+    }\r
+    function colorAlpha(input) {
+      if (input.id === 'fill-color' || input.id === 'stroke-color') return paintUI[input.id.split('-')[0]].opacity;
+      return input.dataset.alpha == null ? 1 : Number(input.dataset.alpha);
+    }
+    function colorBlend(input) {
+      if (input.id === 'fill-color' || input.id === 'stroke-color') return paintUI[input.id.split('-')[0]].blendMode || 'NORMAL';
+      return input.dataset.blend || 'NORMAL';
+    }
+    function refreshColorChip(input) {
+      const button = input._colorButton;
+      if (!button) return;
+      const rgb = hexToRgb(input.value);
+      button.querySelector('i').style.background = 'rgba(' + [rgb.r*255,rgb.g*255,rgb.b*255,colorAlpha(input)].join(',') + ')';
+      button.querySelector('span').textContent = input.value.toUpperCase() + ' · ' + Math.round(colorAlpha(input)*100) + '%';
+      button.setAttribute('aria-label', button.dataset.label + ' ' + button.querySelector('span').textContent);
+    }
+    function installColorControl(input, label) {
+      if (input._colorButton) return;
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'color-chip'; button.dataset.label = label;
+      button.setAttribute('aria-haspopup', 'dialog'); button.innerHTML = '<i></i><span></span>';
+      input.after(button); input._colorButton = button;
+      // Keep swatches synchronized when detection or preset loading assigns .value.
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+      Object.defineProperty(input, 'value', {
+        configurable: true, get() { return descriptor.get.call(this); },
+        set(value) { descriptor.set.call(this, value); refreshColorChip(this); },
+      });
+      input.addEventListener('input', () => refreshColorChip(input));
+      button.addEventListener('click', () => openColorPanel(input, button));
+      refreshColorChip(input);
+    }
+    function readColorValue(id) {
+      const input = document.getElementById(id);
+      return { ...hexToRgb(input.value), a: colorAlpha(input), blendMode: colorBlend(input) };
+    }
+    function setColorValue(id, color) {
+      const input = document.getElementById(id);
+      input.dataset.alpha = color.a == null ? 1 : color.a;
+      input.dataset.blend = color.blendMode || 'NORMAL';
+      input.value = rgbToHex(color);
+    }
+    function rgbHSV(hex) {
+      const { r,g,b } = hexToRgb(hex), max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min;
+      let h = 0;
+      if (d) h = max === r ? ((g-b)/d)%6 : max === g ? (b-r)/d+2 : (r-g)/d+4;
+      return { h: (h*60+360)%360, s: max ? d/max : 0, v: max };
+    }
+    function hsvHex() {
+      const { h,s,v } = colorHSV, c = v*s, x = c*(1-Math.abs((h/60)%2-1)), m = v-c;
+      const sectors = [[c,x,0],[x,c,0],[0,c,x],[0,x,c],[x,0,c],[c,0,x]];
+      return '#' + sectors[Math.floor(h/60)%6].map(n => Math.round((n+m)*255).toString(16).padStart(2,'0')).join('');
+    }
+    function updateColorPanel(write) {
+      if (!colorTarget) return;
+      const spectrum = colorPanel.querySelector('.color-spectrum');
+      spectrum.style.setProperty('--hue', colorHSV.h);
+      spectrum.querySelector('i').style.left = colorHSV.s*100 + '%';
+      spectrum.querySelector('i').style.top = (1-colorHSV.v)*100 + '%';
+      if (write) {
+        colorTarget.value = hsvHex();
+        colorTarget.dispatchEvent(new Event('input', { bubbles:true }));
+      }
+      colorPanel.querySelector('#picker-hex').value = colorTarget.value.toUpperCase();
+      colorPanel.querySelector('#picker-hue').value = colorHSV.h;
+      colorPanel.querySelector('#picker-alpha').value = Math.round(colorAlpha(colorTarget)*10000)/100;
+      colorPanel.querySelector('#picker-blend').value = colorBlend(colorTarget);
+      ddRegistry['picker-blend'].syncDisplay();\r
+    }
+    function closeColorPanel() {
+      if (!colorPanel || colorPanel.hidden) return;
+      if (ddRegistry['picker-blend']) ddRegistry['picker-blend'].close();\r
+      colorPanel.hidden = true; colorTarget = null;
+      if (colorReturnFocus && colorReturnFocus.isConnected) colorReturnFocus.focus();
+      colorReturnFocus = null;
+    }
+    function openColorPanel(input, button) {
+      closeAllPickers();
+      if (!colorPanel) {
+        colorPanel = document.createElement('div'); colorPanel.className = 'color-dialog'; colorPanel.hidden = true;
+        colorPanel.innerHTML = \`<div class="color-panel" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+          <header><span id="picker-title">颜色</span><button type="button" aria-label="关闭颜色面板">×</button></header>
+          <div class="color-spectrum" aria-hidden="true"><i></i></div>
+          <input id="picker-hue" class="color-hue" type="range" min="0" max="359" aria-label="色相" />
+          <div class="color-fields"><label>HEX<input id="picker-hex" spellcheck="false" maxlength="7" /></label>
+          <label>不透明度 %<input id="picker-alpha" type="number" min="0" max="100" step="0.1" /></label></div>
+          <select id="picker-blend" aria-label="混合模式"></select>
+          <div class="hint">按 Enter 确认颜色，点击应用后写入图层</div></div>\`;\r
+        document.body.append(colorPanel);
+        const select = colorPanel.querySelector('#picker-blend');
+        blendOptions.forEach(([v,l]) => select.add(new Option(l,v)));
+        installBlendDropdown(select);\r
+        colorPanel.querySelector('header button').addEventListener('click', closeColorPanel);
+        colorPanel.addEventListener('click', e => { if (e.target === colorPanel) closeColorPanel(); });
+        colorPanel.addEventListener('keydown', e => {
+          if (e.isComposing || e.keyCode === 229) return;\r
+          if (e.key === 'Enter' && !e.target.closest('.blend-dd')) {\r
+            e.preventDefault(); e.stopPropagation();\r
+            const hex = colorPanel.querySelector('#picker-hex');\r
+            if (hex.getAttribute('aria-invalid') === 'true') {\r
+              hex.focus(); hex.select();\r
+              return;\r
+            }\r
+            const alpha = colorPanel.querySelector('#picker-alpha');\r
+            if (alpha.value === '' || !Number.isFinite(Number(alpha.value))) {\r
+              alpha.focus();\r
+              return;\r
+            }\r
+            closeColorPanel();\r
+            return;\r
+          }\r
+          if (e.key === 'Escape') {\r
+            e.preventDefault(); e.stopPropagation();\r
+            const blendRoot = colorPanel.querySelector('.blend-dd');\r
+            if (blendRoot.classList.contains('open')) { ddRegistry['picker-blend'].close(); blendRoot.querySelector('.dd-trigger').focus(); }\r
+            else closeColorPanel();\r
+          }\r
+          if (e.key === 'Tab') {
+            const controls = [...colorPanel.querySelectorAll('button,input,select')].filter(el => el.getClientRects().length);\r
+            const first = controls[0], last = controls[controls.length-1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+          }
+        });
+        const spectrum = colorPanel.querySelector('.color-spectrum');
+        const pick = e => {
+          const rect = spectrum.getBoundingClientRect();
+          colorHSV.s = Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+          colorHSV.v = 1-Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height));
+          updateColorPanel(true);
+        };
+        spectrum.addEventListener('pointerdown', e => { spectrum.setPointerCapture(e.pointerId); pick(e); });
+        spectrum.addEventListener('pointermove', e => { if (spectrum.hasPointerCapture(e.pointerId)) pick(e); });
+        spectrum.addEventListener('pointerup', e => { if (spectrum.hasPointerCapture(e.pointerId)) spectrum.releasePointerCapture(e.pointerId); });
+        colorPanel.querySelector('#picker-hue').addEventListener('input', e => { colorHSV.h = Number(e.target.value); updateColorPanel(true); });
+        const hex = colorPanel.querySelector('#picker-hex');
+        hex.addEventListener('input', () => {
+          const value = hex.value.trim().replace(/^#/, '');
+          const valid = /^[0-9a-f]{6}$/i.test(value);
+          hex.setAttribute('aria-invalid', String(!valid));
+          if (!valid) return;
+          colorTarget.value = '#' + value;
+          colorHSV = rgbHSV(colorTarget.value);
+          colorTarget.dispatchEvent(new Event('input', { bubbles:true })); updateColorPanel(false);
+        });
+        colorPanel.querySelector('#picker-alpha').addEventListener('input', e => {
+          const alpha = clampPct(parseFloat(e.target.value))/100;
+          colorTarget.dataset.alpha = alpha;
+          if (colorTarget.id === 'fill-color' || colorTarget.id === 'stroke-color') {
+            const key = colorTarget.id.split('-')[0]; paintUI[key].opacity = alpha; syncPaintProperties(key); renderGradient(key);
+          }
+          colorTarget.dispatchEvent(new Event('input', { bubbles:true }));
+        });
+        select.addEventListener('change', () => {
+          colorTarget.dataset.blend = select.value;
+          if (colorTarget.id === 'fill-color' || colorTarget.id === 'stroke-color') {
+            const key = colorTarget.id.split('-')[0]; paintUI[key].blendMode = select.value; syncPaintProperties(key);
+          }
+          colorTarget.dispatchEvent(new Event('input', { bubbles:true }));
+        });
+      }
+      colorTarget = input; colorReturnFocus = button; colorHSV = rgbHSV(input.value);
+      colorPanel.querySelector('#picker-title').textContent = button.dataset.label;
+      colorPanel.querySelector('.blend-dd').hidden = input.dataset.stop === 'true';\r
+      colorPanel.querySelector('#picker-hex').setAttribute('aria-invalid', 'false');
+      colorPanel.hidden = false; updateColorPanel(false); colorPanel.querySelector('#picker-hex').focus();
+    }
+    function syncPaintProperties(key) {
+      const opacity = document.getElementById(key + '-opacity'), blend = document.getElementById(key + '-blend');
+      if (opacity) opacity.value = Math.round(paintUI[key].opacity*10000)/100;
+      if (blend) blend.value = paintUI[key].blendMode || 'NORMAL';
+      if (ddRegistry[key + '-blend']) ddRegistry[key + '-blend'].syncDisplay();\r
+      refreshColorChip(document.getElementById(key + '-color'));
+    }
+    function readExtraEffects(scheme) {
+      const innerShadow = {
+        color: readColorValue('inner-color'), blendMode: colorBlend(document.getElementById('inner-color')),
+        offsetX: Number(document.getElementById('inner-x').value)||0, offsetY: Number(document.getElementById('inner-y').value)||0,
+        blur: Math.max(0,Number(document.getElementById('inner-blur').value)||0), spread: Number(document.getElementById('inner-spread').value)||0,
+      };
+      const result = {};
+      for (const [key, cfg] of [['innerShadow',innerShadow],['layerBlur',{ radius: Math.max(0,Number(document.getElementById('layer-blur').value)||0) }],['backgroundBlur',{ radius: Math.max(0,Number(document.getElementById('background-blur').value)||0) }]]) {
+        const enabled = document.getElementById(key + '-on').checked;
+        result[key] = enabled || scheme ? cfg : null;
+        if (scheme) result[key + 'On'] = enabled;
+      }
+      return result;
+    }
+    function setExtraEffects(value) {
+      for (const key of ['innerShadow','layerBlur','backgroundBlur']) document.getElementById(key + '-on').checked = !!value[key + 'On'];
+      const shadow = value.innerShadow || { color:{ r:0,g:0,b:0,a:1 }, blendMode:'NORMAL', offsetX:0,offsetY:0,blur:4,spread:0 };
+      setColorValue('inner-color', { ...shadow.color, blendMode: shadow.blendMode });
+      for (const [field, prop] of [['x','offsetX'],['y','offsetY'],['blur','blur'],['spread','spread']]) document.getElementById('inner-' + field).value = shadow[prop] || 0;
+      document.getElementById('layer-blur').value = value.layerBlur ? value.layerBlur.radius : 4;
+      document.getElementById('background-blur').value = value.backgroundBlur ? value.backgroundBlur.radius : 4;
+    }
+    function syncStyleCards() {\r
+      document.querySelectorAll('.style-grid > .card').forEach(card => {\r
+        const toggle = card.querySelector('.switch-row input');\r
+        const body = card.querySelector('.style-card-body');\r
+        if (!body) return;\r
+        if (!toggle.checked && colorTarget && body.contains(colorTarget)) closeColorPanel();\r
+        body.hidden = !toggle.checked;\r
+        card.classList.toggle('is-collapsed', !toggle.checked);\r
+        toggle.setAttribute('aria-expanded', String(toggle.checked));\r
+      });\r
+    }\r
+    function initializeStyleControls() {\r
+      const grid = document.createElement('div'); grid.className = 'style-grid';
+      const fill = document.getElementById('fill-on').closest('.card'); fill.before(grid);
+      for (const id of ['fill-on','stroke-on','shadow-on','radius-on']) grid.append(document.getElementById(id).closest('.card'));
+      const card = (id, label, contents) => {
+        const node = document.createElement('div'); node.className = 'card';
+        node.innerHTML = '<label class="switch-row"><input type="checkbox" id="' + id + '-on"/><span class="sw"></span><span class="sw-txt">' + label + '</span></label>' + contents;
+        return node;
+      };
+      const inner = card('innerShadow','内阴影', '<div class="row" style="margin-top:10px"><input type="hidden" id="inner-color" value="#000000"/></div><div class="row" style="margin-top:8px">' + [['x','X'],['y','Y'],['blur','模糊'],['spread','扩展']].map(([id,label]) => '<label class="effect-field grow">' + label + '<input type="number" id="inner-' + id + '" value="0"' + (id === 'blur' ? ' min="0"' : '') + '/></label>').join('') + '</div>');
+      grid.children[2].after(inner);
+      for (const [id,label,field] of [['layerBlur','图层模糊','layer-blur'],['backgroundBlur','背景模糊','background-blur']]) grid.append(card(id,label,'<label class="effect-field" style="margin-top:10px">半径<input type="number" min="0" id="' + field + '" value="4"/></label>'));\r
+      for (const key of ['fill','stroke']) {
+        const properties = document.createElement('div'); properties.className = 'paint-properties';
+        const blend = blendSelect(key + '-blend'); properties.append(blend);
+        document.getElementById(key + '-grad').after(properties);
+        installBlendDropdown(blend);\r
+        blend.addEventListener('change', () => { paintUI[key].blendMode = blend.value; });
+      }
+      for (const [id,label] of [['cn-color','中文颜色'],['en-color','英文颜色'],['fill-color','填充颜色'],['stroke-color','描边颜色'],['shadow-color','投影颜色'],['inner-color','内阴影颜色']]) installColorControl(document.getElementById(id), label);
+      document.querySelectorAll('#shadow-x,#shadow-y,#shadow-blur,#shadow-spread').forEach(input => {\r
+        input.setAttribute('aria-label', input.placeholder);\r
+        const label = document.createElement('label'); label.className = 'effect-field';\r
+        label.textContent = input.placeholder;\r
+        input.before(label); label.append(input);\r
+        if (input.id === 'shadow-blur') input.min = 0;\r
+      });\r
+      // One consistent collapsed header; retain values while the settings are hidden.\r
+      Array.from(grid.children).forEach(card => {\r
+        const header = card.querySelector('.switch-row');\r
+        const toggle = header.querySelector('input');\r
+        const body = document.createElement('div');\r
+        body.className = 'style-card-body'; body.id = toggle.id + '-settings';\r
+        Array.from(card.childNodes).forEach(child => { if (child !== header) body.append(child); });\r
+        card.append(body);\r
+        toggle.setAttribute('aria-controls', body.id);\r
+        toggle.addEventListener('change', () => {\r
+          closeAllPickers(); syncStyleCards();\r
+          for (const key of ['fill','stroke']) if (document.getElementById(key + '-on').checked) renderGradient(key);\r
+        });\r
+      });\r
+      syncStyleCards();\r
+      // Lock style content to the remaining viewport; switching or opening a gradient never grows the plugin.\r
+      const fitStyle = () => {
+        const panel = document.getElementById('style');
+        const top = document.querySelector('main').getBoundingClientRect().top;
+        panel.style.maxHeight = Math.max(240,window.innerHeight-top-22) + 'px';
+        panel.style.overflowY = 'auto'; panel.style.overflowX = 'hidden';
+      };
+      fitStyle(); window.addEventListener('resize', fitStyle);
+    }
+
     const $ = (s) => document.querySelector(s);\r
     let activeTab = 'font';   // 当前激活标签页，用于决定「识别」读哪类节点\r
     const ddRegistry = {};    // 通用下拉组件实例表，按目标 select 的 id 索引\r
@@ -1581,7 +1936,8 @@
     let fontGuard = null;\r
 \r
     // 收起所有弹层（方案预设 / 批量样式预设 / 通用下拉）\r
-    function closeAllPickers() {\r
+    function closeAllPickers() {
+      closeColorPanel();\r
       closePresetPop();\r
       closeStylePop();\r
       document.querySelectorAll('.dd.open').forEach((el) => el.classList.remove('open'));\r
@@ -1609,6 +1965,7 @@
     // 用「当前面板距顶偏移 + 面板高度 + 底部留白」计算，\r
     // 这样即使 body 被面板高度撑大，测到的仍是真实内容高度。\r
     function requestResize() {\r
+      if (activeTab === 'style') return; // 保持当前窗口高度，样式区内部滚动
       const panel = document.querySelector('.panel.active');\r
       if (!panel) return;\r
       // 用 getBoundingClientRect 取面板底部「相对文档」的位置。\r
@@ -1700,8 +2057,8 @@
       $('#en-size').value = msg.enSize != null ? msg.enSize : '';\r
       $('#cn-size').placeholder = msg.cnSizeMixed ? '混合字号（留空保留）' : '如 14，留空不改';\r
       $('#en-size').placeholder = msg.enSizeMixed ? '混合字号（留空保留）' : '如 12，留空不改';\r
-      if (msg.cnColor) $('#cn-color').value = rgbToHex(msg.cnColor);\r
-      if (msg.enColor) $('#en-color').value = rgbToHex(msg.enColor);\r
+      if (msg.cnColor) setColorValue('cn-color', msg.cnColor);\r
+      if (msg.enColor) setColorValue('en-color', msg.enColor);\r
     }\r
 \r
     // 批量样式结果反馈：没套到东西也要说清楚原因（分组/画框自身没有 fills）\r
@@ -1766,15 +2123,16 @@
       if (msg.stroke) setPaintConfig('stroke', msg.stroke);\r
       $('#stroke-weight').value = msg.strokeWeight != null ? msg.strokeWeight : '';\r
       if (msg.strokeAlign) { $('#stroke-align').value = msg.strokeAlign; syncAlignDisplay(); }\r
+      setExtraEffects(msg);
       $('#shadow-on').checked = !!msg.shadowOn;
       if (msg.shadow) {
-        shadowOpacity = msg.shadow.color && msg.shadow.color.a != null ? msg.shadow.color.a : 1;
-        $('#shadow-color').value = rgbToHex(msg.shadow.color);
+        setColorValue('shadow-color', { ...msg.shadow.color, blendMode: msg.shadow.blendMode });
         $('#shadow-x').value = msg.shadow.offsetX != null ? msg.shadow.offsetX : '';\r
         $('#shadow-y').value = msg.shadow.offsetY != null ? msg.shadow.offsetY : '';\r
         $('#shadow-blur').value = msg.shadow.blur != null ? msg.shadow.blur : '';\r
         $('#shadow-spread').value = msg.shadow.spread != null ? msg.shadow.spread : '';\r
       }\r
+      syncStyleCards();\r
     }\r
 \r
     // ---- 颜色转换 ----\r
@@ -1814,15 +2172,14 @@
     // UI 内部用 hex + 百分比存色标，方便表单与颜色控件\r
     const paintUI = {\r
       fill: {\r
-        mode: 'solid', opacity: 1, type: 'GRADIENT_LINEAR', angle: 0,
+        mode: 'solid', opacity: 1, blendMode: 'NORMAL', type: 'GRADIENT_LINEAR', angle: 0,
         stops: [{ color: '#FF9161', alpha: 1, pos: 0 }, { color: '#FF5A2B', alpha: 1, pos: 100 }],
       },\r
       stroke: {\r
-        mode: 'solid', opacity: 1, type: 'GRADIENT_LINEAR', angle: 0,
+        mode: 'solid', opacity: 1, blendMode: 'NORMAL', type: 'GRADIENT_LINEAR', angle: 0,
         stops: [{ color: '#111827', alpha: 1, pos: 0 }, { color: '#6B7280', alpha: 1, pos: 100 }],
       },\r
     };
-    let shadowOpacity = 1;
     const clampPct = (n) => (isNaN(n) ? 0 : n < 0 ? 0 : n > 100 ? 100 : n);\r
     const norm360 = (a) => (((Number(a) || 0) % 360) + 360) % 360;\r
     const to255 = (hex) => { const c = hexToRgb(hex); return [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255)]; };\r
@@ -1912,9 +2269,11 @@
         const row = document.createElement('div');\r
         row.className = 'stop-row';\r
         const col = document.createElement('input');\r
-        col.type = 'color';\r
+        col.type = 'hidden';
+        col.dataset.stop = 'true';
+        col.dataset.alpha = s.alpha == null ? 1 : s.alpha;\r
         col.value = s.color;\r
-        col.addEventListener('input', () => { s.color = col.value; renderGradient(key); });\r
+        col.addEventListener('input', () => { s.color = col.value; s.alpha = Number(col.dataset.alpha); renderGradient(key); });\r
 \r
         const num = document.createElement('input');\r
         num.type = 'number';\r
@@ -1945,7 +2304,8 @@
         });\r
 \r
         row.append(col, num, pct, del);\r
-        box.append(row);\r
+        box.append(row);
+        installColorControl(col, '渐变色标');\r
       });\r
     }\r
 \r
@@ -1971,12 +2331,12 @@
       const stops = st.stops\r
         .slice()\r
         .sort((a, b) => a.pos - b.pos)\r
-        .map((s) => ({ c: to255(s.color), p: clampPct(s.pos) / 100 }));\r
-      const last = stops[stops.length - 1] || { c: [255, 255, 255], p: 1 };\r
+        .map((s) => ({ c: [...to255(s.color), s.alpha == null ? 1 : s.alpha], p: clampPct(s.pos) / 100 }));\r
+      const last = stops[stops.length - 1] || { c: [255, 255, 255, 1], p: 1 };\r
 \r
       const sample = (t) => {\r
         t = t < 0 ? 0 : t > 1 ? 1 : t;\r
-        if (!stops.length) return [255, 255, 255];\r
+        if (!stops.length) return [255, 255, 255, 1];\r
         if (t <= stops[0].p) return stops[0].c;\r
         for (let i = 0; i < stops.length - 1; i++) {\r
           const a = stops[i], b = stops[i + 1];\r
@@ -1985,7 +2345,8 @@
             return [\r
               a.c[0] + (b.c[0] - a.c[0]) * k,\r
               a.c[1] + (b.c[1] - a.c[1]) * k,\r
-              a.c[2] + (b.c[2] - a.c[2]) * k,\r
+              a.c[2] + (b.c[2] - a.c[2]) * k,
+              a.c[3] + (b.c[3] - a.c[3]) * k,\r
             ];\r
           }\r
         }\r
@@ -2006,7 +2367,7 @@
           else t = ((Math.atan2(gy - 0.5, gx - 0.5) + Math.PI / 2) / (Math.PI * 2) + 1) % 1;\r
           const c = sample(t);\r
           const o = (y * cv.width + x) * 4;\r
-          data[o] = c[0]; data[o + 1] = c[1]; data[o + 2] = c[2]; data[o + 3] = 255;\r
+          data[o] = c[0]; data[o + 1] = c[1]; data[o + 2] = c[2]; data[o + 3] = Math.round(255 * c[3] * (st.opacity == null ? 1 : st.opacity));\r
         }\r
       }\r
       ctx.putImageData(img, 0, 0);\r
@@ -2049,10 +2410,12 @@
     function readPaintConfig(key) {\r
       const st = paintUI[key];\r
       if (st.mode === 'solid') {\r
-        return { kind: 'solid', color: hexToRgb($('#' + key + '-color').value), opacity: st.opacity == null ? 1 : st.opacity };
+        return { kind: 'solid', color: hexToRgb($('#' + key + '-color').value), opacity: st.opacity == null ? 1 : st.opacity, blendMode: st.blendMode || 'NORMAL' };
       }\r
       return {\r
         kind: 'gradient',\r
+        opacity: st.opacity == null ? 1 : st.opacity,\r
+        blendMode: st.blendMode || 'NORMAL',\r
         gradient: {\r
           gradientType: st.type,\r
           angle: norm360(st.angle),\r
@@ -2068,6 +2431,9 @@
     function setPaintConfig(key, cfg) {\r
       const st = paintUI[key];\r
       if (!cfg) return;\r
+      st.opacity = cfg.opacity == null ? 1 : cfg.opacity;\r
+      st.blendMode = cfg.blendMode || 'NORMAL';\r
+      syncPaintProperties(key);\r
       if (cfg.kind === 'gradient' && cfg.gradient) {\r
         st.mode = 'gradient';\r
         st.type = cfg.gradient.gradientType || 'GRADIENT_LINEAR';\r
@@ -2213,6 +2579,9 @@
       const searchWrap = root.querySelector('.dd-search');\r
       const searchInput = searchWrap ? searchWrap.querySelector('input') : null;\r
       const emptyEl = root.querySelector('.dd-empty');\r
+      trigger.setAttribute('aria-haspopup', 'listbox');\r
+      trigger.setAttribute('aria-expanded', 'false');\r
+      list.setAttribute('role', 'listbox');\r
 \r
       function syncDisplay() {\r
         const opt = sel.selectedOptions && sel.selectedOptions[0];\r
@@ -2266,6 +2635,8 @@
           const row = document.createElement('button');\r
           row.type = 'button';\r
           row.className = 'dd-row' + (o.value === sel.value ? ' on' : '');\r
+          row.setAttribute('role', 'option');\r
+          row.setAttribute('aria-selected', String(o.value === sel.value));\r
           const name = document.createElement('span');\r
           name.style.flex = '1';\r
           name.style.minWidth = '0';\r
@@ -2287,6 +2658,7 @@
             sel.dispatchEvent(new Event('change'));\r
             syncDisplay();\r
             close();\r
+            if (opts.floating) trigger.focus();\r
             onPick(o.value);\r
           };\r
           list.append(row);\r
@@ -2313,17 +2685,32 @@
 \r
       function open() {\r
         // 打开任一下拉时，收起其余所有弹层\r
-        closeAllPickers();\r
+        if (opts.keepColorPanel) {\r
+          closePresetPop(); closeStylePop();\r
+          Object.values(ddRegistry).forEach(dropdown => dropdown.close());\r
+        } else closeAllPickers();\r
         root.classList.add('open');\r
         pop.classList.add('open');\r
         // 打开时才按需取数：字体库体积大且加载慢，不该拖住插件启动\r
         if (typeof opts.onOpen === 'function') opts.onOpen();\r
         build(searchInput ? searchInput.value : '');\r
+        trigger.setAttribute('aria-expanded', 'true');\r
+        if (opts.floating) {\r
+          const rect = trigger.getBoundingClientRect();\r
+          const below = innerHeight - rect.bottom - 12, above = rect.top - 12;\r
+          const down = below >= 180 || below >= above;\r
+          const height = Math.min(280, Math.max(80, down ? below : above));\r
+          const width = Math.min(Math.max(rect.width, 180), innerWidth - 24);\r
+          Object.assign(pop.style, { position:'fixed', left:Math.max(12,Math.min(rect.left,innerWidth-width-12))+'px', right:'auto', width:width+'px', maxHeight:height+'px', top:down ? (rect.bottom+7)+'px' : 'auto', bottom:down ? 'auto' : (innerHeight-rect.top+7)+'px' });\r
+          const selected = list.querySelector('.dd-row.on');\r
+          if (selected) selected.scrollIntoView({ block:'nearest' });\r
+        }\r
         if (searchInput) setTimeout(() => searchInput.focus(), 30);\r
       }\r
       function close() {\r
         root.classList.remove('open');\r
         pop.classList.remove('open');\r
+        trigger.setAttribute('aria-expanded', 'false');\r
       }\r
 \r
       trigger.addEventListener('click', (e) => {\r
@@ -2332,6 +2719,21 @@
       });\r
       if (searchInput) searchInput.addEventListener('input', () => build(searchInput.value));\r
       root.addEventListener('click', (e) => e.stopPropagation());\r
+      if (opts.floating) root.addEventListener('keydown', e => {\r
+        if (e.key === 'Escape' && pop.classList.contains('open')) { e.preventDefault(); e.stopPropagation(); close(); trigger.focus(); }\r
+        else if (['ArrowDown','ArrowUp','Home','End'].includes(e.key)) {\r
+          e.preventDefault();\r
+          if (!pop.classList.contains('open')) open();\r
+          const items = Array.from(list.querySelectorAll('.dd-row'));\r
+          const currentIndex = items.indexOf(document.activeElement);\r
+          const index = e.key === 'Home' ? 0 : e.key === 'End' ? items.length-1 : currentIndex < 0 ? (e.key === 'ArrowUp' ? items.length-1 : 0) : (currentIndex + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;\r
+          if (items[index]) items[index].focus();\r
+        } else if (e.key === 'Tab' && pop.classList.contains('open')) { close(); trigger.focus(); }\r
+      });\r
+      if (opts.floating) {\r
+        window.addEventListener('resize', close);\r
+        document.addEventListener('scroll', e => { if (!pop.contains(e.target)) close(); }, true);\r
+      }\r
       document.addEventListener('click', close);\r
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });\r
 \r
@@ -2402,8 +2804,8 @@
         enFont,
         cnSize: parseFloat($('#cn-size').value) || null,
         enSize: parseFloat($('#en-size').value) || null,
-        cnColor: hexToRgb($('#cn-color').value),
-        enColor: hexToRgb($('#en-color').value),
+        cnColor: readColorValue('cn-color'),
+        enColor: readColorValue('en-color'),
         symbolFontSide,
         pairedOuterValue: Number.isFinite(parseFloat($('#kerning-outer').value)) ? parseFloat($('#kerning-outer').value) : -45,
         applyColors,
@@ -2461,8 +2863,8 @@
         enFont: fontSel.en || parseFont($('#en-font').value),\r
         cnSize: parseFloat($('#cn-size').value) || null,\r
         enSize: parseFloat($('#en-size').value) || null,\r
-        cnColor: hexToRgb($('#cn-color').value),
-        enColor: hexToRgb($('#en-color').value),
+        cnColor: readColorValue('cn-color'),
+        enColor: readColorValue('en-color'),
         symbolFontSide,
       };\r
     }\r
@@ -2572,8 +2974,8 @@
       if (p.enFont) setFontValue('en', p.enFont);\r
       $('#cn-size').value = p.cnSize != null ? p.cnSize : '';\r
       $('#en-size').value = p.enSize != null ? p.enSize : '';\r
-      if (p.cnColor) $('#cn-color').value = rgbToHex(p.cnColor);\r
-      if (p.enColor) $('#en-color').value = rgbToHex(p.enColor);
+      if (p.cnColor) setColorValue('cn-color', p.cnColor);\r
+      if (p.enColor) setColorValue('en-color', p.enColor);
       setSymbolFontSide(p.symbolFontSide);
     }\r
 \r
@@ -2695,9 +3097,10 @@
         strokeColor: hexToRgb($('#stroke-color').value),\r
         strokeWeight: parseFloat($('#stroke-weight').value) || 0,\r
         strokeAlign: $('#stroke-align').value,\r
+        ...readExtraEffects(true),
         shadowOn: $('#shadow-on').checked,\r
         shadow: {\r
-          color: Object.assign(hexToRgb($('#shadow-color').value), { a: shadowOpacity }),
+          color: readColorValue('shadow-color'), blendMode: $('#shadow-color').dataset.blend || 'NORMAL',
           offsetX: parseFloat($('#shadow-x').value) || 0,\r
           offsetY: parseFloat($('#shadow-y').value) || 0,\r
           blur: parseFloat($('#shadow-blur').value) || 0,\r
@@ -2801,15 +3204,16 @@
         $('#stroke-align').value = p.strokeAlign;\r
         syncAlignDisplay();\r
       }\r
+      setExtraEffects(p);
       $('#shadow-on').checked = !!p.shadowOn;
       if (p.shadow) {
-        shadowOpacity = p.shadow.color && p.shadow.color.a != null ? p.shadow.color.a : 1;
-        $('#shadow-color').value = rgbToHex(p.shadow.color);
+        setColorValue('shadow-color', { ...p.shadow.color, blendMode: p.shadow.blendMode });
         $('#shadow-x').value = p.shadow.offsetX != null ? p.shadow.offsetX : '';\r
         $('#shadow-y').value = p.shadow.offsetY != null ? p.shadow.offsetY : '';\r
         $('#shadow-blur').value = p.shadow.blur != null ? p.shadow.blur : '';\r
         $('#shadow-spread').value = p.shadow.spread != null ? p.shadow.spread : '';\r
       }\r
+      syncStyleCards();\r
     }\r
 \r
     // 让「描边对齐」下拉的文字与实际取值保持一致（程序赋值后必须手动同步）\r
@@ -2908,13 +3312,15 @@
     // ---- 批量样式：应用 ----\r
     $('#style-apply').addEventListener('click', () => {\r
       const cfg = {\r
+        remove: Object.entries({ fill:'fill-on',stroke:'stroke-on',cornerRadius:'radius-on',shadow:'shadow-on',innerShadow:'innerShadow-on',layerBlur:'layerBlur-on',backgroundBlur:'backgroundBlur-on' }).filter(([,id]) => !document.getElementById(id).checked).map(([key]) => key),\r
         fill: $('#fill-on').checked ? readPaintConfig('fill') : null,\r
         cornerRadius: $('#radius-on').checked ? (parseFloat($('#radius').value) || 0) : null,\r
         stroke: $('#stroke-on').checked ? readPaintConfig('stroke') : null,\r
         strokeWeight: $('#stroke-on').checked ? (parseFloat($('#stroke-weight').value) || 0) : null,\r
         strokeAlign: $('#stroke-on').checked ? $('#stroke-align').value : null,\r
+        ...readExtraEffects(false),
         shadow: $('#shadow-on').checked ? {\r
-          color: Object.assign(hexToRgb($('#shadow-color').value), { a: shadowOpacity }),
+          color: readColorValue('shadow-color'), blendMode: $('#shadow-color').dataset.blend || 'NORMAL',
           offsetX: parseFloat($('#shadow-x').value) || 0,\r
           offsetY: parseFloat($('#shadow-y').value) || 0,\r
           blur: parseFloat($('#shadow-blur').value) || 0,\r
@@ -3312,6 +3718,7 @@
         }\r
       }, 200);\r
     }\r
+    initializeStyleControls();
   <\/script>\r
 </body>\r
 </html>\r
@@ -3332,7 +3739,7 @@
   });
   var fontFamilies = null;
   figma.ui.onmessage = async (msg) => {
-    var _a, _b;
+    var _a, _b, _c;
     if (msg.type === "list-fonts") {
       try {
         if (!fontFamilies) {
@@ -3422,6 +3829,9 @@
       const align = node.strokeAlign || "INSIDE";
       const effects = node.effects || [];
       const shadow = effects.find((e) => e.type === "DROP_SHADOW");
+      const innerShadow = effects.find((e) => e.type === "INNER_SHADOW");
+      const layerBlur = effects.find((e) => e.type === "LAYER_BLUR");
+      const backgroundBlur = effects.find((e) => e.type === "BACKGROUND_BLUR");
       figma.ui.postMessage({
         type: "detect-style-result",
         fillOn: !!fillCfg,
@@ -3434,12 +3844,26 @@
         strokeAlign: align,
         shadowOn: !!shadow,
         shadow: shadow ? {
+          blendMode: shadow.blendMode,
           color: { r: shadow.color.r, g: shadow.color.g, b: shadow.color.b, a: (_a = shadow.color.a) != null ? _a : 1 },
           offsetX: shadow.offset.x,
           offsetY: shadow.offset.y,
           blur: shadow.radius,
           spread: (_b = shadow.spread) != null ? _b : 0
-        } : null
+        } : null,
+        innerShadowOn: !!innerShadow,
+        innerShadow: innerShadow ? {
+          color: { ...innerShadow.color },
+          blendMode: innerShadow.blendMode,
+          offsetX: innerShadow.offset.x,
+          offsetY: innerShadow.offset.y,
+          blur: innerShadow.radius,
+          spread: (_c = innerShadow.spread) != null ? _c : 0
+        } : null,
+        layerBlurOn: !!layerBlur,
+        layerBlur: layerBlur ? { radius: layerBlur.radius } : null,
+        backgroundBlurOn: !!backgroundBlur,
+        backgroundBlur: backgroundBlur ? { radius: backgroundBlur.radius } : null
       });
       return;
     }

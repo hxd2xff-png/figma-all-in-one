@@ -92,6 +92,30 @@ if (!runtimeErr) {
     !!back && JSON.stringify(back.data) === JSON.stringify(payload),
     JSON.stringify(back && back.data).slice(0, 80));
 
+  // Verify the real message handler returns all color/effect properties to the UI.
+  const node = {
+    type: 'RECTANGLE', fills: [{ type:'SOLID',color:{r:1,g:0,b:0},opacity:0,blendMode:'MULTIPLY' }],
+    strokes: [], effects: [
+      { type:'DROP_SHADOW',color:{r:0,g:0,b:0,a:0.3},offset:{x:1,y:2},radius:4,spread:0,visible:true,blendMode:'SCREEN' },
+      { type:'INNER_SHADOW',color:{r:1,g:0,b:0,a:0},offset:{x:-1,y:3},radius:5,spread:-2,visible:true,blendMode:'OVERLAY' },
+      { type:'LAYER_BLUR',radius:0,blurType:'NORMAL',visible:true },
+      { type:'BACKGROUND_BLUR',radius:12,blurType:'NORMAL',visible:true },
+    ],
+  };
+  global.figma.currentPage = { selection:[node] };
+  await onmessage({ type:'detect-style' });
+  const detected = posted.filter(m => m.type === 'detect-style-result').pop();
+  check('识别回传填充不透明度和混合模式', detected.fill.opacity === 0 && detected.fill.blendMode === 'MULTIPLY');
+  check('识别回传投影和内阴影混合模式', detected.shadow.blendMode === 'SCREEN' && detected.innerShadow.blendMode === 'OVERLAY' && detected.innerShadow.color.a === 0);
+  check('识别回传两种模糊及零半径', detected.layerBlurOn && detected.layerBlur.radius === 0 && detected.backgroundBlurOn && detected.backgroundBlur.radius === 12);
+  await onmessage({ type:'bulk-style-remove',style:'innerShadow' });
+  await onmessage({ type:'bulk-style-remove',style:'fill' });
+  check('不再接受开关即时删除消息，应用前图层保持原样', node.effects.length === 4 && node.fills.length === 1);
+  await onmessage({ type:'bulk-styles',config:{fill:null,stroke:null,cornerRadius:null,strokeWeight:null,strokeAlign:null,shadow:null,remove:['innerShadow','fill']} });
+  check('点击应用后删除内阴影和填充，其它效果保留', node.fills.length === 0 && node.effects.length === 3 && !node.effects.some(effect => effect.type === 'INNER_SHADOW') && node.effects.some(effect => effect.type === 'DROP_SHADOW'));
+  await onmessage({ type:'bulk-styles',config:{fill:null,stroke:null,cornerRadius:null,strokeWeight:null,strokeAlign:null,shadow:null,remove:['shadow','layerBlur','backgroundBlur']} });
+  check('应用方案消息清除已关闭的效果', node.effects.length === 0);
+
   console.log(failed === 0 ? '\n全部通过 ✓' : `\n${failed} 项未通过 ✗`);
   process.exit(failed === 0 ? 0 : 1);
 })();

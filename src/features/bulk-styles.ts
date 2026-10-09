@@ -31,11 +31,13 @@ export interface GradientConfig {
 }
 
 // 填充/描边统一用「纯色 or 渐变」二选一
-export type PaintConfig =
+export type PaintConfig = (
   | { kind: 'solid'; color: RGB; opacity?: number }
-  | { kind: 'gradient'; gradient: GradientConfig };
+  | { kind: 'gradient'; gradient: GradientConfig }
+) & { opacity?: number; blendMode?: BlendMode };
 
 export interface ShadowConfig {
+  blendMode?: BlendMode;
   color: RGB & { a: number };
   offsetX: number;
   offsetY: number;
@@ -44,12 +46,32 @@ export interface ShadowConfig {
 }
 
 export interface StyleConfig {
+  remove?: StyleKey[]; // 显式删除；未指定的关闭项仍沿用“不修改”的旧行为
   fill: PaintConfig | null; // null = 不改填充
   cornerRadius: number | null;
   stroke: PaintConfig | null;
   strokeWeight: number | null;
   strokeAlign: 'INSIDE' | 'OUTSIDE' | 'CENTER' | null;
   shadow: ShadowConfig | null;
+  innerShadow?: ShadowConfig | null;
+  layerBlur?: { radius: number } | null;
+  backgroundBlur?: { radius: number } | null;
+}
+
+export type StyleKey = 'fill' | 'stroke' | 'cornerRadius' | 'shadow' | 'innerShadow' | 'layerBlur' | 'backgroundBlur';
+
+export function removeStyles(nodes: SceneNode[], styles: StyleKey[]): void {
+  const effectTypes: Partial<Record<StyleKey, Effect['type']>> = {
+    shadow: 'DROP_SHADOW', innerShadow: 'INNER_SHADOW',
+    layerBlur: 'LAYER_BLUR', backgroundBlur: 'BACKGROUND_BLUR',
+  };
+  const types = new Set(styles.map(style => effectTypes[style]).filter(Boolean));
+  for (const node of nodes) {
+    if (styles.includes('fill') && 'fills' in node) node.fills = [];
+    if (styles.includes('stroke') && 'strokes' in node) node.strokes = [];
+    if (styles.includes('cornerRadius') && 'cornerRadius' in node) (node as RectangleNode).cornerRadius = 0;
+    if (types.size && 'effects' in node) node.effects = node.effects.filter(effect => !types.has(effect.type));
+  }
 }
 
 export const GRADIENT_KINDS: GradientKind[] = [
@@ -125,14 +147,16 @@ export function buildGradientPaint(g: GradientConfig): GradientPaint {
 
 // 配置 → Figma Paint
 export function paintFromConfig(cfg: PaintConfig): Paint {
-  if (cfg.kind === 'gradient') return buildGradientPaint(cfg.gradient);
-  return { type: 'SOLID', color: cfg.color, opacity: cfg.opacity } as SolidPaint;
+  const properties = { opacity: cfg.opacity == null ? 1 : clamp01(cfg.opacity), blendMode: cfg.blendMode || 'NORMAL' };
+  if (cfg.kind === 'gradient') return { ...buildGradientPaint(cfg.gradient), ...properties };
+  return { type: 'SOLID', color: cfg.color, ...properties } as SolidPaint;
 }
 
 // Figma Paint → 配置（识别选中图层用；图片/视频填充返回 null）
 export function readPaintConfig(p: Paint | undefined | null): PaintConfig | null {
   if (!p) return null;
-  if (p.type === 'SOLID') return { kind: 'solid', color: { ...p.color }, opacity: p.opacity == null ? 1 : p.opacity };
+  const properties = { opacity: p.opacity == null ? 1 : p.opacity, blendMode: p.blendMode || 'NORMAL' };
+  if (p.type === 'SOLID') return { kind: 'solid', color: { ...p.color }, ...properties };
   if (
     p.type === 'GRADIENT_LINEAR' ||
     p.type === 'GRADIENT_RADIAL' ||
@@ -141,6 +165,7 @@ export function readPaintConfig(p: Paint | undefined | null): PaintConfig | null
   ) {
     return {
       kind: 'gradient',
+      ...properties,
       gradient: {
         gradientType: p.type,
         angle: angleFromTransform(p.gradientTransform),
@@ -155,6 +180,7 @@ export function readPaintConfig(p: Paint | undefined | null): PaintConfig | null
 }
 
 export function applyStyles(nodes: SceneNode[], cfg: StyleConfig): void {
+  if (cfg.remove?.length) removeStyles(nodes, cfg.remove);
   for (const node of nodes) {
     // 填充（纯色或渐变）
     if (cfg.fill && 'fills' in node) {
@@ -175,18 +201,24 @@ export function applyStyles(nodes: SceneNode[], cfg: StyleConfig): void {
       }
     }
 
-    // 阴影：替换本工具管理的 DROP_SHADOW，保留其它效果，避免重复应用不断累积。
-    if (cfg.shadow && 'effects' in node) {
-      const shadow = {
-        type: 'DROP_SHADOW',
-        color: cfg.shadow.color,
-        offset: { x: cfg.shadow.offsetX, y: cfg.shadow.offsetY },
-        radius: cfg.shadow.blur,
-        spread: cfg.shadow.spread,
-        visible: true,
-        blendMode: 'NORMAL',
-      } as Effect;
-      node.effects = [...(node.effects as Effect[]).filter((effect) => effect.type !== 'DROP_SHADOW'), shadow];
+    // 只替换启用的效果类型，保留未启用及其它效果；重复应用不累积。
+    if ('effects' in node) {
+      const replacements: Effect[] = [];
+      for (const [type, shadow] of [['DROP_SHADOW', cfg.shadow], ['INNER_SHADOW', cfg.innerShadow]] as const) {
+        if (shadow) replacements.push({
+          type, color: { r: shadow.color.r, g: shadow.color.g, b: shadow.color.b, a: clamp01(shadow.color.a) },
+          offset: { x: shadow.offsetX, y: shadow.offsetY },
+          radius: Math.max(0, shadow.blur), spread: shadow.spread,
+          visible: true, blendMode: shadow.blendMode || 'NORMAL',
+        });
+      }
+      for (const [type, blur] of [['LAYER_BLUR', cfg.layerBlur], ['BACKGROUND_BLUR', cfg.backgroundBlur]] as const) {
+        if (blur) replacements.push({ type, radius: Math.max(0, blur.radius), visible: true, blurType: 'NORMAL' });
+      }
+      if (replacements.length) {
+        const types = new Set(replacements.map(effect => effect.type));
+        node.effects = [...node.effects.filter(effect => !types.has(effect.type)), ...replacements];
+      }
     }
   }
 }

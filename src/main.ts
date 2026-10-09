@@ -162,9 +162,10 @@ figma.ui.onmessage = async (msg: any) => {
     const strokeWeight = typeof rawW === 'number' ? rawW : 0;
     const align = (node.strokeAlign as string) || 'INSIDE';
     const effects = (node.effects as Effect[]) || [];
-    const shadow = effects.find((e) => e.type === 'DROP_SHADOW') as
-      | (Effect & { color: RGBA; offset: { x: number; y: number }; radius: number; spread: number })
-      | undefined;
+    const shadow = effects.find((e) => e.type === 'DROP_SHADOW') as DropShadowEffect | undefined;
+    const innerShadow = effects.find(e => e.type === 'INNER_SHADOW') as InnerShadowEffect | undefined;
+    const layerBlur = effects.find(e => e.type === 'LAYER_BLUR') as BlurEffect | undefined;
+    const backgroundBlur = effects.find(e => e.type === 'BACKGROUND_BLUR') as BlurEffect | undefined;
 
     figma.ui.postMessage({
       type: 'detect-style-result',
@@ -178,12 +179,23 @@ figma.ui.onmessage = async (msg: any) => {
       strokeAlign: align,
       shadowOn: !!shadow,
       shadow: shadow ? {
+        blendMode: shadow.blendMode,
         color: { r: shadow.color.r, g: shadow.color.g, b: shadow.color.b, a: shadow.color.a ?? 1 },
         offsetX: shadow.offset.x,
         offsetY: shadow.offset.y,
         blur: shadow.radius,
         spread: shadow.spread ?? 0,
       } : null,
+      innerShadowOn: !!innerShadow,
+      innerShadow: innerShadow ? {
+        color: { ...innerShadow.color }, blendMode: innerShadow.blendMode,
+        offsetX: innerShadow.offset.x, offsetY: innerShadow.offset.y,
+        blur: innerShadow.radius, spread: innerShadow.spread ?? 0,
+      } : null,
+      layerBlurOn: !!layerBlur,
+      layerBlur: layerBlur ? { radius: layerBlur.radius } : null,
+      backgroundBlurOn: !!backgroundBlur,
+      backgroundBlur: backgroundBlur ? { radius: backgroundBlur.radius } : null,
     });
     return;
   }

@@ -5,13 +5,15 @@
 // 整体替换只需加载新字体，避免旧字体不可用或加载缓慢阻塞应用。
 // 参考 MixFonts 的应用顺序，保留本项目的字符分类和逐节点错误反馈。
 
+export type FontColor = RGB & { a?: number; blendMode?: BlendMode };
+
 export interface FontMixConfig {
   cnFont: FontName; // 中文字体（family+style）
   enFont: FontName; // 英文字体
   cnSize: number | null; // 中文号；null = 不改
   enSize: number | null; // 英文号；null = 不改
-  cnColor: RGB | null; // 中文字色；null = 不改
-  enColor: RGB | null; // 英文字色；null = 不改
+  cnColor: FontColor | null; // 中文字色；null = 不改
+  enColor: FontColor | null; // 英文字色；null = 不改
   symbolFontSide?: 'cn' | 'en'; // 符号使用哪一侧字体；默认沿用旧规则
   pairedOuterValue?: number; // 中文全角成对标点外侧微调值；未命中规则的成对符号写入 0
   applyColors?: boolean; // 是否同步应用中英文颜色；默认不改颜色
@@ -30,8 +32,8 @@ export interface DetectedFontMix {
   enFont: FontName | null;
   cnSize: number | null;
   enSize: number | null;
-  cnColor: RGB | null;
-  enColor: RGB | null;
+  cnColor: FontColor | null;
+  enColor: FontColor | null;
   cnSizeMixed?: boolean;
   enSizeMixed?: boolean;
 }
@@ -264,7 +266,11 @@ function applyRange(node: TextNode, start: number, end: number, cjk: boolean, cf
 
   if (cfg.applyColors) {
     const color = cjk ? cfg.cnColor : cfg.enColor;
-    if (color != null) node.setRangeFills(start, end, [{ type: 'SOLID', color }]);
+    if (color != null) node.setRangeFills(start, end, [{
+      type: 'SOLID', color: { r: color.r, g: color.g, b: color.b },
+      opacity: color.a == null ? 1 : Math.max(0, Math.min(1, color.a)),
+      blendMode: color.blendMode || 'NORMAL',
+    }]);
   }
 }
 
@@ -303,7 +309,7 @@ export function detectFontMix(input: TextNode | TextNode[]): DetectedFontMix {
             const fills = node.getRangeFills(i, end);
             if (Array.isArray(fills)) {
               const solid = fills.find(p => p.type === 'SOLID') as SolidPaint | undefined;
-              if (solid) out[`${side}Color`] = solid.color;
+              if (solid) out[`${side}Color`] = { ...solid.color, a: solid.opacity ?? 1, blendMode: solid.blendMode || 'NORMAL' };
             }
           } catch { /* 颜色读取失败不影响字号 */ }
         }

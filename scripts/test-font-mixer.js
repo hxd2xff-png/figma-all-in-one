@@ -62,6 +62,17 @@ function textNode(name, chars, opts = {}) {
 const fontCalls = (n) => n.calls.filter((c) => c[0] === 'font');
 
 (async () => {
+  {
+    const n = textNode('颜色元数据', '中A');
+    const fills = [];
+    n.setRangeFills = (start, end, paints) => fills.push({ start,end,paint:paints[0] });
+    await applyFontMix([n], cfg({ applyColors:true, cnColor:{ r:1,g:0,b:0,a:0,blendMode:'MULTIPLY' }, enColor:{ r:0,g:0,b:1,a:0.4,blendMode:'SCREEN' } }));
+    ok('中英透明度和混合模式独立应用', fills.length === 2 && fills[0].paint.opacity === 0 && fills[0].paint.blendMode === 'MULTIPLY' && fills[1].paint.opacity === 0.4 && fills[1].paint.blendMode === 'SCREEN');
+    n.getRangeFills = start => [fills[start].paint];
+    n.getRangeFontSize = () => 12;
+    const detected = detectFontMix(n);
+    ok('中英颜色识别保留透明度和混合模式', detected.cnColor.a === 0 && detected.cnColor.blendMode === 'MULTIPLY' && detected.enColor.a === 0.4);
+  }
   console.log('=== 1. 中英区间划分（逐段设置）===');
   {
     const n = textNode('混合文本', '中文abc中文');

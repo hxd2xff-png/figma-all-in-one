@@ -4,6 +4,8 @@ const path = require('path');
 const {
   gradientTransform, angleFromTransform, normalizeStops,
   buildGradientPaint, paintFromConfig, readPaintConfig,
+  applyStyles,
+  removeStyles,
 } = require(path.join(__dirname, '.bulk.cjs'));
 
 let pass = 0, fail = 0;
@@ -136,6 +138,54 @@ console.log('=== 5. 反读 Paint（识别选中图层）===');
 
   ok('图片填充返回 null', readPaintConfig({ type: 'IMAGE' }) === null);
   ok('空值返回 null', readPaintConfig(undefined) === null && readPaintConfig(null) === null);
+}
+
+console.log('=== 6. 透明度 / 混合模式 / 多种效果 ===');
+{
+  for (const opacity of [0, 0.37, 1]) {
+    const solid = readPaintConfig(paintFromConfig({ kind: 'solid', color: { r:1,g:0,b:0 }, opacity, blendMode:'MULTIPLY' }));
+    ok('纯色透明度和混合模式往返 ' + opacity, solid.opacity === opacity && solid.blendMode === 'MULTIPLY');
+    const gradient = readPaintConfig(paintFromConfig({ kind:'gradient', opacity, blendMode:'SCREEN', gradient:{
+      gradientType:'GRADIENT_LINEAR', angle:0, stops:[{ position:0,color:{ r:1,g:0,b:0,a:0 } },{ position:1,color:{ r:0,g:0,b:1,a:0.6 } }],
+    } }));
+    ok('渐变整体和色标透明度独立往返 ' + opacity, gradient.opacity === opacity && gradient.blendMode === 'SCREEN' && gradient.gradient.stops[0].color.a === 0 && gradient.gradient.stops[1].color.a === 0.6);
+  }
+  const old = paintFromConfig({ kind:'solid', color:{ r:0,g:0,b:0 } });
+  ok('旧配置默认完全不透明 / 正常混合', old.opacity === 1 && old.blendMode === 'NORMAL');
+  const untouched = { type:'DROP_SHADOW',color:{ r:0,g:0,b:0,a:0.7 },offset:{ x:0,y:1 },radius:4,visible:true,blendMode:'NORMAL' };
+  const node = { effects:[untouched,{ type:'INNER_SHADOW',visible:true },{ type:'LAYER_BLUR',radius:8,visible:true,blurType:'NORMAL' }] };
+  const cfg = { fill:null,cornerRadius:null,stroke:null,strokeWeight:null,strokeAlign:null,shadow:null,
+    innerShadow:{ color:{ r:1,g:0,b:0,a:0 },offsetX:-2,offsetY:3,blur:5,spread:-1,blendMode:'OVERLAY' },
+    layerBlur:{ radius:0 },backgroundBlur:{ radius:12 },
+  };
+  applyStyles([node], cfg); applyStyles([node], cfg);
+  ok('重复应用不累积，并保留未启用的投影', node.effects.length === 4 && node.effects[0] === untouched);
+  const inner = node.effects.find(e => e.type === 'INNER_SHADOW');
+  ok('内阴影透明度 / 混合 / 偏移正确', inner.color.a === 0 && inner.blendMode === 'OVERLAY' && inner.offset.x === -2);
+  ok('两种模糊独立设置，零半径有效', node.effects.find(e => e.type === 'LAYER_BLUR').radius === 0 && node.effects.find(e => e.type === 'BACKGROUND_BLUR').radius === 12);
+}
+
+console.log('=== 7. 关闭样式时移除对应属性 ===');
+{
+  const keys = { shadow:'DROP_SHADOW',innerShadow:'INNER_SHADOW',layerBlur:'LAYER_BLUR',backgroundBlur:'BACKGROUND_BLUR' };
+  for (const [key,type] of Object.entries(keys)) {
+    const node = { effects:[...Object.values(keys).map(type => ({type,visible:true})),{type:'NOISE',visible:true},{type,visible:false}] };
+    const keep = node.effects.filter(effect => effect.type !== type);
+    removeStyles([node],[key]);
+    ok('关闭 ' + key + ' 移除全部同类效果并保留其它效果', node.effects.length === keep.length && node.effects.every((effect,index)=>effect===keep[index]));
+    removeStyles([node],[key]);
+    ok('重复关闭 ' + key + ' 不影响其它效果', node.effects.length === keep.length);
+  }
+  const node = { fills:[{type:'SOLID'}],strokes:[{type:'SOLID'}],cornerRadius:12,effects:[{type:'DROP_SHADOW'}] };
+  removeStyles([node],['fill']);
+  ok('关闭填充只清空填充', !node.fills.length && node.strokes.length === 1 && node.cornerRadius === 12 && node.effects.length === 1);
+  removeStyles([node],['stroke','cornerRadius']);
+  ok('关闭描边和圆角分别清空描边 / 归零圆角', !node.strokes.length && node.cornerRadius === 0);
+  const effects = { effects:[{type:'DROP_SHADOW'},{type:'INNER_SHADOW'},{type:'LAYER_BLUR'},{type:'BACKGROUND_BLUR'},{type:'NOISE'}] };
+  applyStyles([effects],{fill:null,stroke:null,cornerRadius:null,strokeWeight:null,strokeAlign:null,shadow:null,remove:Object.keys(keys)});
+  ok('应用方案清除关闭的效果并保留其它效果', effects.effects.length === 1 && effects.effects[0].type === 'NOISE');
+  removeStyles([{},node],['shadow','fill','stroke','cornerRadius']);
+  ok('不支持对应属性的节点安全跳过', true);
 }
 
 console.log('\n' + pass + ' 项通过' + (fail ? '，' + fail + ' 项未通过 ✗' : ' ✓'));

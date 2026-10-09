@@ -241,6 +241,18 @@
       overflow-y: auto;
     }
     .dd-pop.open { display: block; animation: pop .16s ease; }
+    .dd-pop, .preset-pop {
+      background: rgba(255, 255, 255, .78);
+      backdrop-filter: blur(20px) saturate(150%);
+      -webkit-backdrop-filter: blur(20px) saturate(150%);
+      border-color: rgba(255, 255, 255, .72);
+    }
+    .dd.blend-dd { margin-top:8px; }
+    .paint-properties .dd.blend-dd { margin-top:0; }
+    .blend-dd .dd-trigger { padding:8px; background:var(--fill); border-radius:8px; font-size:12px; }
+    .blend-dd .dd-pop { z-index:10010; }
+    .blend-dd .dd-row { padding:8px 10px; font-size:12px; }
+    .blend-dd[hidden] { display:none; }
     /* 窄字段（如描边对齐）右侧对齐展开，并给最小宽度 */
     .dd-pop.align-right { left: auto; right: 0; min-width: 134px; }
     .dd-head {
@@ -351,18 +363,6 @@
     }
     ::placeholder { color: #BDB8B4; }
 
-    input[type="color"] {
-      width: 46px; height: 38px;
-      flex: none;
-      padding: 3px;
-      border: none;
-      border-radius: var(--r-input);
-      background: var(--fill);
-      cursor: pointer;
-    }
-    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-    input[type="color"]::-webkit-color-swatch { border: none; border-radius: 9px; }
-
     /* ---------- 纯色 / 渐变 分段控件（iOS segmented 同款） ---------- */
     .seg { display: flex; gap: 3px; background: var(--fill); border-radius: 11px; padding: 3px; }
     .seg-btn {
@@ -389,8 +389,6 @@
     .gp-dir:hover { background: #FFF6F2; border-color: var(--o-1); }
     .gp-dir.on { background: var(--o-2); border-color: var(--o-2); color: #fff; }
     .stop-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
-    .stop-row input[type="color"] { width: 34px; height: 30px; padding: 2px; border-radius: 9px; }
-    .stop-row input[type="color"]::-webkit-color-swatch { border-radius: 7px; }
     .stop-pos {
       width: 54px; height: 30px; text-align: center;
       border: 1.5px solid transparent; border-radius: 9px;
@@ -528,6 +526,43 @@
     }
     .chip-btn:hover { border-color: #FFCDB8; color: var(--o-2); background: #FFF7F3; }
     .chip-btn:active { transform: translateY(1px); }
+
+    .style-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; align-items:stretch; margin-bottom:12px; }
+    .style-grid .card { display:flex; flex-direction:column; margin:0; padding:12px; min-width:0; min-height:50px; border-radius:14px; }
+    .style-grid .card.is-collapsed { align-self:start; height:50px; }
+    .style-grid .switch-row { min-height:24px; margin:0; }
+    .style-card-body[hidden] { display:none; }
+    .style-grid .row { flex-wrap:wrap; gap:6px; }
+    .style-grid .hint { display:none; }
+    .style-grid input { min-width:0; }
+    .style-grid .grow { flex-basis:45%; }
+    .style-grid .sw-txt { font-size:12px; }
+    .style-grid .stop-row { flex-wrap:wrap; gap:4px; }
+    .style-grid .stop-pos { width:44px; }
+    .paint-properties { display:grid; grid-template-columns:1fr; gap:6px; margin-top:8px; }
+    .paint-properties label, .effect-field { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--ink-3); }
+    .paint-properties input { width:58px; padding:6px; }
+    .paint-properties select { width:100%; padding:6px; border:1px solid var(--line); border-radius:8px; background:var(--fill); font:inherit; color:var(--ink); }
+    .effect-field { white-space:nowrap; flex-direction:column; align-items:stretch; gap:3px; }
+    .effect-field input { width:100%; min-width:0; padding:7px; }
+    .style-grid .effect-field { display:flex; flex-basis:45%; }
+    .color-chip { display:inline-flex; align-items:center; gap:5px; border:1px solid var(--line); background:var(--fill); border-radius:8px; padding:5px; font:inherit; cursor:pointer; min-width:0; max-width:100%; }
+    .color-chip i { width:22px; height:22px; flex:none; border-radius:4px; border:1px solid #0002; }
+    .color-chip span { font-size:10px; overflow:hidden; text-overflow:ellipsis; }
+    .color-dialog { position:fixed; inset:0; z-index:10000; background:#0003; display:flex; align-items:center; justify-content:center; padding:12px; }
+    .color-dialog[hidden] { display:none; }
+    .color-panel { width:280px; max-height:calc(100vh - 24px); overflow:auto; border-radius:14px; background:var(--card); padding:16px; box-shadow:0 16px 60px #0003; }
+    .color-panel header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; font-weight:600; }
+    .color-panel header button { border:0; background:var(--fill); border-radius:6px; padding:4px 9px; cursor:pointer; }
+    .color-spectrum { position:relative; height:160px; border-radius:8px; touch-action:none; cursor:crosshair; background:linear-gradient(to top,#000,transparent),linear-gradient(to right,#fff,transparent),hsl(var(--hue),100%,50%); }
+    .color-spectrum i { position:absolute; width:12px; height:12px; border:2px solid white; box-shadow:0 0 0 1px #0006; border-radius:50%; transform:translate(-50%,-50%); pointer-events:none; }
+    .color-panel input[type=range] { width:100%; margin:12px 0; }
+    .color-panel .color-hue { appearance:none; height:12px; border-radius:8px; background:linear-gradient(to right,red,#ff0,#0f0,#0ff,#00f,#f0f,red); }
+    .color-fields { display:grid; grid-template-columns:2fr 1fr; gap:8px; }
+    .color-fields label { font-size:11px; color:var(--ink-3); }
+    .color-fields input { width:100%; margin-top:4px; padding:8px; }
+    .color-panel select { width:100%; padding:8px; margin-top:8px; border:1px solid var(--line); border-radius:8px; background:var(--fill); }
+    .gp-preview { background:repeating-conic-gradient(#ddd 0% 25%,#fff 0% 50%) 0 / 12px 12px; }
   </style>
 </head>
 <body data-page-node-id="mGtn0qUxCwcNGIXj41gxRb">
@@ -598,7 +633,7 @@
           </div>
           <div class="field" data-page-node-id="GF37ISo8J8SEG1sndqV3l0">
             <label data-page-node-id="2IBcWBRLInPEpvqA5FWnzA">字色</label>
-            <input type="color" id="cn-color" value="#000000" data-page-node-id="86ZKluwVulGNFq6vHsMGxd" />
+            <input type="hidden" id="cn-color" value="#000000" data-page-node-id="86ZKluwVulGNFq6vHsMGxd" />
           </div>
         </div>
       </div>
@@ -628,7 +663,7 @@
           </div>
           <div class="field" data-page-node-id="l4FJjV3CvQQyAXPPeJgJhA">
             <label data-page-node-id="E8jgoRNeXXIVtM7h3Dse2C">字色</label>
-            <input type="color" id="en-color" value="#000000" data-page-node-id="3GpxfbLsTeVXqejgeFvwEg" />
+            <input type="hidden" id="en-color" value="#000000" data-page-node-id="3GpxfbLsTeVXqejgeFvwEg" />
           </div>
         </div>
       </div>
@@ -684,7 +719,7 @@
           <button type="button" class="seg-btn" data-v="gradient">渐变</button>
         </div>
         <div class="row" id="fill-solid" style="margin-top: 10px">
-          <input type="color" id="fill-color" value="#60a5fa" />
+          <input type="hidden" id="fill-color" value="#60a5fa" />
           <span class="hint" style="margin-top: 0">纯色填充，套用到所有选中图形</span>
         </div>
         <div id="fill-grad" style="display: none"></div>
@@ -712,7 +747,7 @@
           <button type="button" class="seg-btn" data-v="gradient">渐变</button>
         </div>
         <div class="row" id="stroke-solid" style="margin-top: 10px">
-          <input type="color" id="stroke-color" value="#111827" />
+          <input type="hidden" id="stroke-color" value="#111827" />
           <span class="hint" style="margin-top: 0">描边颜色</span>
         </div>
         <div id="stroke-grad" style="display: none"></div>
@@ -744,10 +779,10 @@
         <label class="switch-row" data-page-node-id="6ULc1BgoyBaP6xckaresvQ">
           <input type="checkbox" id="shadow-on" data-page-node-id="ry6VLPgiWKBWJSI1LAXRv1" />
           <span class="sw" data-page-node-id="xjy5qvsUDi3vMf1BzhzUXg"></span>
-          <span class="sw-txt" data-page-node-id="PqpX6qPo2N4jrOTd2nMdoG">投影 DROP_SHADOW</span>
+          <span class="sw-txt" data-page-node-id="PqpX6qPo2N4jrOTd2nMdoG">投影</span>
         </label>
         <div class="row" style="margin-top: 11px" data-page-node-id="rOUYGPGeH0OKNd9xaMcFLt">
-          <input type="color" id="shadow-color" value="#000000" data-page-node-id="3osXfEeHzaOk8mPZNOB1la" />
+          <input type="hidden" id="shadow-color" value="#000000" data-page-node-id="3osXfEeHzaOk8mPZNOB1la" />
           <div class="field grow" style="margin-bottom: 0" data-page-node-id="2tbXOLX8FybsPBAN2b3om6">
             <input type="number" id="shadow-x" placeholder="X" data-page-node-id="D0e5BYaTCTBhRWCceD0DxY" />
           </div>
@@ -886,6 +921,291 @@
   </main>
 
   <script>
+    // Shared color panel: font colors, paints, shadows and gradient stops.
+    const blendOptions = [
+      ['NORMAL','正常'],['DARKEN','变暗'],['MULTIPLY','正片叠底'],['COLOR_BURN','颜色加深'],['LINEAR_BURN','线性加深'],
+      ['LIGHTEN','变亮'],['SCREEN','滤色'],['COLOR_DODGE','颜色减淡'],['LINEAR_DODGE','线性减淡'],
+      ['OVERLAY','叠加'],['SOFT_LIGHT','柔光'],['HARD_LIGHT','强光'],['DIFFERENCE','差值'],['EXCLUSION','排除'],
+      ['HUE','色相'],['SATURATION','饱和度'],['COLOR','颜色'],['LUMINOSITY','明度'],
+    ];
+    let colorPanel = null, colorTarget = null, colorReturnFocus = null;
+    let colorHSV = { h: 0, s: 0, v: 0 };
+    function blendSelect(id) {
+      const select = document.createElement('select');
+      if (id) select.id = id;
+      select.setAttribute('aria-label', '混合模式');
+      blendOptions.forEach(([value, label]) => select.add(new Option(label, value)));
+      return select;
+    }
+    function installBlendDropdown(select) {
+      select.style.display = 'none';
+      const root = document.createElement('div');
+      root.className = 'dd blend-dd'; root.dataset.target = select.id;
+      root.innerHTML = '<button type="button" class="dd-trigger" aria-label="混合模式"><span class="dd-current"></span><span class="dd-caret">⌄</span></button><div class="dd-pop"><div class="dd-head">混合模式</div><div class="dd-list"></div></div>';
+      select.after(root);
+      ddRegistry[select.id] = initDropdown(root, { keepColorPanel: true, floating: true });
+      select.addEventListener('change', () => ddRegistry[select.id].syncDisplay());
+      return root;
+    }
+    function colorAlpha(input) {
+      if (input.id === 'fill-color' || input.id === 'stroke-color') return paintUI[input.id.split('-')[0]].opacity;
+      return input.dataset.alpha == null ? 1 : Number(input.dataset.alpha);
+    }
+    function colorBlend(input) {
+      if (input.id === 'fill-color' || input.id === 'stroke-color') return paintUI[input.id.split('-')[0]].blendMode || 'NORMAL';
+      return input.dataset.blend || 'NORMAL';
+    }
+    function refreshColorChip(input) {
+      const button = input._colorButton;
+      if (!button) return;
+      const rgb = hexToRgb(input.value);
+      button.querySelector('i').style.background = 'rgba(' + [rgb.r*255,rgb.g*255,rgb.b*255,colorAlpha(input)].join(',') + ')';
+      button.querySelector('span').textContent = input.value.toUpperCase() + ' · ' + Math.round(colorAlpha(input)*100) + '%';
+      button.setAttribute('aria-label', button.dataset.label + ' ' + button.querySelector('span').textContent);
+    }
+    function installColorControl(input, label) {
+      if (input._colorButton) return;
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'color-chip'; button.dataset.label = label;
+      button.setAttribute('aria-haspopup', 'dialog'); button.innerHTML = '<i></i><span></span>';
+      input.after(button); input._colorButton = button;
+      // Keep swatches synchronized when detection or preset loading assigns .value.
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+      Object.defineProperty(input, 'value', {
+        configurable: true, get() { return descriptor.get.call(this); },
+        set(value) { descriptor.set.call(this, value); refreshColorChip(this); },
+      });
+      input.addEventListener('input', () => refreshColorChip(input));
+      button.addEventListener('click', () => openColorPanel(input, button));
+      refreshColorChip(input);
+    }
+    function readColorValue(id) {
+      const input = document.getElementById(id);
+      return { ...hexToRgb(input.value), a: colorAlpha(input), blendMode: colorBlend(input) };
+    }
+    function setColorValue(id, color) {
+      const input = document.getElementById(id);
+      input.dataset.alpha = color.a == null ? 1 : color.a;
+      input.dataset.blend = color.blendMode || 'NORMAL';
+      input.value = rgbToHex(color);
+    }
+    function rgbHSV(hex) {
+      const { r,g,b } = hexToRgb(hex), max = Math.max(r,g,b), min = Math.min(r,g,b), d = max-min;
+      let h = 0;
+      if (d) h = max === r ? ((g-b)/d)%6 : max === g ? (b-r)/d+2 : (r-g)/d+4;
+      return { h: (h*60+360)%360, s: max ? d/max : 0, v: max };
+    }
+    function hsvHex() {
+      const { h,s,v } = colorHSV, c = v*s, x = c*(1-Math.abs((h/60)%2-1)), m = v-c;
+      const sectors = [[c,x,0],[x,c,0],[0,c,x],[0,x,c],[x,0,c],[c,0,x]];
+      return '#' + sectors[Math.floor(h/60)%6].map(n => Math.round((n+m)*255).toString(16).padStart(2,'0')).join('');
+    }
+    function updateColorPanel(write) {
+      if (!colorTarget) return;
+      const spectrum = colorPanel.querySelector('.color-spectrum');
+      spectrum.style.setProperty('--hue', colorHSV.h);
+      spectrum.querySelector('i').style.left = colorHSV.s*100 + '%';
+      spectrum.querySelector('i').style.top = (1-colorHSV.v)*100 + '%';
+      if (write) {
+        colorTarget.value = hsvHex();
+        colorTarget.dispatchEvent(new Event('input', { bubbles:true }));
+      }
+      colorPanel.querySelector('#picker-hex').value = colorTarget.value.toUpperCase();
+      colorPanel.querySelector('#picker-hue').value = colorHSV.h;
+      colorPanel.querySelector('#picker-alpha').value = Math.round(colorAlpha(colorTarget)*10000)/100;
+      colorPanel.querySelector('#picker-blend').value = colorBlend(colorTarget);
+      ddRegistry['picker-blend'].syncDisplay();
+    }
+    function closeColorPanel() {
+      if (!colorPanel || colorPanel.hidden) return;
+      if (ddRegistry['picker-blend']) ddRegistry['picker-blend'].close();
+      colorPanel.hidden = true; colorTarget = null;
+      if (colorReturnFocus && colorReturnFocus.isConnected) colorReturnFocus.focus();
+      colorReturnFocus = null;
+    }
+    function openColorPanel(input, button) {
+      closeAllPickers();
+      if (!colorPanel) {
+        colorPanel = document.createElement('div'); colorPanel.className = 'color-dialog'; colorPanel.hidden = true;
+        colorPanel.innerHTML = `<div class="color-panel" role="dialog" aria-modal="true" aria-labelledby="picker-title">
+          <header><span id="picker-title">颜色</span><button type="button" aria-label="关闭颜色面板">×</button></header>
+          <div class="color-spectrum" aria-hidden="true"><i></i></div>
+          <input id="picker-hue" class="color-hue" type="range" min="0" max="359" aria-label="色相" />
+          <div class="color-fields"><label>HEX<input id="picker-hex" spellcheck="false" maxlength="7" /></label>
+          <label>不透明度 %<input id="picker-alpha" type="number" min="0" max="100" step="0.1" /></label></div>
+          <select id="picker-blend" aria-label="混合模式"></select>
+          <div class="hint">按 Enter 确认颜色，点击应用后写入图层</div></div>`;
+        document.body.append(colorPanel);
+        const select = colorPanel.querySelector('#picker-blend');
+        blendOptions.forEach(([v,l]) => select.add(new Option(l,v)));
+        installBlendDropdown(select);
+        colorPanel.querySelector('header button').addEventListener('click', closeColorPanel);
+        colorPanel.addEventListener('click', e => { if (e.target === colorPanel) closeColorPanel(); });
+        colorPanel.addEventListener('keydown', e => {
+          if (e.isComposing || e.keyCode === 229) return;
+          if (e.key === 'Enter' && !e.target.closest('.blend-dd')) {
+            e.preventDefault(); e.stopPropagation();
+            const hex = colorPanel.querySelector('#picker-hex');
+            if (hex.getAttribute('aria-invalid') === 'true') {
+              hex.focus(); hex.select();
+              return;
+            }
+            const alpha = colorPanel.querySelector('#picker-alpha');
+            if (alpha.value === '' || !Number.isFinite(Number(alpha.value))) {
+              alpha.focus();
+              return;
+            }
+            closeColorPanel();
+            return;
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault(); e.stopPropagation();
+            const blendRoot = colorPanel.querySelector('.blend-dd');
+            if (blendRoot.classList.contains('open')) { ddRegistry['picker-blend'].close(); blendRoot.querySelector('.dd-trigger').focus(); }
+            else closeColorPanel();
+          }
+          if (e.key === 'Tab') {
+            const controls = [...colorPanel.querySelectorAll('button,input,select')].filter(el => el.getClientRects().length);
+            const first = controls[0], last = controls[controls.length-1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+          }
+        });
+        const spectrum = colorPanel.querySelector('.color-spectrum');
+        const pick = e => {
+          const rect = spectrum.getBoundingClientRect();
+          colorHSV.s = Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width));
+          colorHSV.v = 1-Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height));
+          updateColorPanel(true);
+        };
+        spectrum.addEventListener('pointerdown', e => { spectrum.setPointerCapture(e.pointerId); pick(e); });
+        spectrum.addEventListener('pointermove', e => { if (spectrum.hasPointerCapture(e.pointerId)) pick(e); });
+        spectrum.addEventListener('pointerup', e => { if (spectrum.hasPointerCapture(e.pointerId)) spectrum.releasePointerCapture(e.pointerId); });
+        colorPanel.querySelector('#picker-hue').addEventListener('input', e => { colorHSV.h = Number(e.target.value); updateColorPanel(true); });
+        const hex = colorPanel.querySelector('#picker-hex');
+        hex.addEventListener('input', () => {
+          const value = hex.value.trim().replace(/^#/, '');
+          const valid = /^[0-9a-f]{6}$/i.test(value);
+          hex.setAttribute('aria-invalid', String(!valid));
+          if (!valid) return;
+          colorTarget.value = '#' + value;
+          colorHSV = rgbHSV(colorTarget.value);
+          colorTarget.dispatchEvent(new Event('input', { bubbles:true })); updateColorPanel(false);
+        });
+        colorPanel.querySelector('#picker-alpha').addEventListener('input', e => {
+          const alpha = clampPct(parseFloat(e.target.value))/100;
+          colorTarget.dataset.alpha = alpha;
+          if (colorTarget.id === 'fill-color' || colorTarget.id === 'stroke-color') {
+            const key = colorTarget.id.split('-')[0]; paintUI[key].opacity = alpha; syncPaintProperties(key); renderGradient(key);
+          }
+          colorTarget.dispatchEvent(new Event('input', { bubbles:true }));
+        });
+        select.addEventListener('change', () => {
+          colorTarget.dataset.blend = select.value;
+          if (colorTarget.id === 'fill-color' || colorTarget.id === 'stroke-color') {
+            const key = colorTarget.id.split('-')[0]; paintUI[key].blendMode = select.value; syncPaintProperties(key);
+          }
+          colorTarget.dispatchEvent(new Event('input', { bubbles:true }));
+        });
+      }
+      colorTarget = input; colorReturnFocus = button; colorHSV = rgbHSV(input.value);
+      colorPanel.querySelector('#picker-title').textContent = button.dataset.label;
+      colorPanel.querySelector('.blend-dd').hidden = input.dataset.stop === 'true';
+      colorPanel.querySelector('#picker-hex').setAttribute('aria-invalid', 'false');
+      colorPanel.hidden = false; updateColorPanel(false); colorPanel.querySelector('#picker-hex').focus();
+    }
+    function syncPaintProperties(key) {
+      const opacity = document.getElementById(key + '-opacity'), blend = document.getElementById(key + '-blend');
+      if (opacity) opacity.value = Math.round(paintUI[key].opacity*10000)/100;
+      if (blend) blend.value = paintUI[key].blendMode || 'NORMAL';
+      if (ddRegistry[key + '-blend']) ddRegistry[key + '-blend'].syncDisplay();
+      refreshColorChip(document.getElementById(key + '-color'));
+    }
+    function readExtraEffects(scheme) {
+      const innerShadow = {
+        color: readColorValue('inner-color'), blendMode: colorBlend(document.getElementById('inner-color')),
+        offsetX: Number(document.getElementById('inner-x').value)||0, offsetY: Number(document.getElementById('inner-y').value)||0,
+        blur: Math.max(0,Number(document.getElementById('inner-blur').value)||0), spread: Number(document.getElementById('inner-spread').value)||0,
+      };
+      const result = {};
+      for (const [key, cfg] of [['innerShadow',innerShadow],['layerBlur',{ radius: Math.max(0,Number(document.getElementById('layer-blur').value)||0) }],['backgroundBlur',{ radius: Math.max(0,Number(document.getElementById('background-blur').value)||0) }]]) {
+        const enabled = document.getElementById(key + '-on').checked;
+        result[key] = enabled || scheme ? cfg : null;
+        if (scheme) result[key + 'On'] = enabled;
+      }
+      return result;
+    }
+    function setExtraEffects(value) {
+      for (const key of ['innerShadow','layerBlur','backgroundBlur']) document.getElementById(key + '-on').checked = !!value[key + 'On'];
+      const shadow = value.innerShadow || { color:{ r:0,g:0,b:0,a:1 }, blendMode:'NORMAL', offsetX:0,offsetY:0,blur:4,spread:0 };
+      setColorValue('inner-color', { ...shadow.color, blendMode: shadow.blendMode });
+      for (const [field, prop] of [['x','offsetX'],['y','offsetY'],['blur','blur'],['spread','spread']]) document.getElementById('inner-' + field).value = shadow[prop] || 0;
+      document.getElementById('layer-blur').value = value.layerBlur ? value.layerBlur.radius : 4;
+      document.getElementById('background-blur').value = value.backgroundBlur ? value.backgroundBlur.radius : 4;
+    }
+    function syncStyleCards() {
+      document.querySelectorAll('.style-grid > .card').forEach(card => {
+        const toggle = card.querySelector('.switch-row input');
+        const body = card.querySelector('.style-card-body');
+        if (!body) return;
+        if (!toggle.checked && colorTarget && body.contains(colorTarget)) closeColorPanel();
+        body.hidden = !toggle.checked;
+        card.classList.toggle('is-collapsed', !toggle.checked);
+        toggle.setAttribute('aria-expanded', String(toggle.checked));
+      });
+    }
+    function initializeStyleControls() {
+      const grid = document.createElement('div'); grid.className = 'style-grid';
+      const fill = document.getElementById('fill-on').closest('.card'); fill.before(grid);
+      for (const id of ['fill-on','stroke-on','shadow-on','radius-on']) grid.append(document.getElementById(id).closest('.card'));
+      const card = (id, label, contents) => {
+        const node = document.createElement('div'); node.className = 'card';
+        node.innerHTML = '<label class="switch-row"><input type="checkbox" id="' + id + '-on"/><span class="sw"></span><span class="sw-txt">' + label + '</span></label>' + contents;
+        return node;
+      };
+      const inner = card('innerShadow','内阴影', '<div class="row" style="margin-top:10px"><input type="hidden" id="inner-color" value="#000000"/></div><div class="row" style="margin-top:8px">' + [['x','X'],['y','Y'],['blur','模糊'],['spread','扩展']].map(([id,label]) => '<label class="effect-field grow">' + label + '<input type="number" id="inner-' + id + '" value="0"' + (id === 'blur' ? ' min="0"' : '') + '/></label>').join('') + '</div>');
+      grid.children[2].after(inner);
+      for (const [id,label,field] of [['layerBlur','图层模糊','layer-blur'],['backgroundBlur','背景模糊','background-blur']]) grid.append(card(id,label,'<label class="effect-field" style="margin-top:10px">半径<input type="number" min="0" id="' + field + '" value="4"/></label>'));
+      for (const key of ['fill','stroke']) {
+        const properties = document.createElement('div'); properties.className = 'paint-properties';
+        const blend = blendSelect(key + '-blend'); properties.append(blend);
+        document.getElementById(key + '-grad').after(properties);
+        installBlendDropdown(blend);
+        blend.addEventListener('change', () => { paintUI[key].blendMode = blend.value; });
+      }
+      for (const [id,label] of [['cn-color','中文颜色'],['en-color','英文颜色'],['fill-color','填充颜色'],['stroke-color','描边颜色'],['shadow-color','投影颜色'],['inner-color','内阴影颜色']]) installColorControl(document.getElementById(id), label);
+      document.querySelectorAll('#shadow-x,#shadow-y,#shadow-blur,#shadow-spread').forEach(input => {
+        input.setAttribute('aria-label', input.placeholder);
+        const label = document.createElement('label'); label.className = 'effect-field';
+        label.textContent = input.placeholder;
+        input.before(label); label.append(input);
+        if (input.id === 'shadow-blur') input.min = 0;
+      });
+      // One consistent collapsed header; retain values while the settings are hidden.
+      Array.from(grid.children).forEach(card => {
+        const header = card.querySelector('.switch-row');
+        const toggle = header.querySelector('input');
+        const body = document.createElement('div');
+        body.className = 'style-card-body'; body.id = toggle.id + '-settings';
+        Array.from(card.childNodes).forEach(child => { if (child !== header) body.append(child); });
+        card.append(body);
+        toggle.setAttribute('aria-controls', body.id);
+        toggle.addEventListener('change', () => {
+          closeAllPickers(); syncStyleCards();
+          for (const key of ['fill','stroke']) if (document.getElementById(key + '-on').checked) renderGradient(key);
+        });
+      });
+      syncStyleCards();
+      // Lock style content to the remaining viewport; switching or opening a gradient never grows the plugin.
+      const fitStyle = () => {
+        const panel = document.getElementById('style');
+        const top = document.querySelector('main').getBoundingClientRect().top;
+        panel.style.maxHeight = Math.max(240,window.innerHeight-top-22) + 'px';
+        panel.style.overflowY = 'auto'; panel.style.overflowX = 'hidden';
+      };
+      fitStyle(); window.addEventListener('resize', fitStyle);
+    }
+
     const $ = (s) => document.querySelector(s);
     let activeTab = 'font';   // 当前激活标签页，用于决定「识别」读哪类节点
     const ddRegistry = {};    // 通用下拉组件实例表，按目标 select 的 id 索引
@@ -897,6 +1217,7 @@
 
     // 收起所有弹层（方案预设 / 批量样式预设 / 通用下拉）
     function closeAllPickers() {
+      closeColorPanel();
       closePresetPop();
       closeStylePop();
       document.querySelectorAll('.dd.open').forEach((el) => el.classList.remove('open'));
@@ -924,6 +1245,7 @@
     // 用「当前面板距顶偏移 + 面板高度 + 底部留白」计算，
     // 这样即使 body 被面板高度撑大，测到的仍是真实内容高度。
     function requestResize() {
+      if (activeTab === 'style') return; // 保持当前窗口高度，样式区内部滚动
       const panel = document.querySelector('.panel.active');
       if (!panel) return;
       // 用 getBoundingClientRect 取面板底部「相对文档」的位置。
@@ -1015,8 +1337,8 @@
       $('#en-size').value = msg.enSize != null ? msg.enSize : '';
       $('#cn-size').placeholder = msg.cnSizeMixed ? '混合字号（留空保留）' : '如 14，留空不改';
       $('#en-size').placeholder = msg.enSizeMixed ? '混合字号（留空保留）' : '如 12，留空不改';
-      if (msg.cnColor) $('#cn-color').value = rgbToHex(msg.cnColor);
-      if (msg.enColor) $('#en-color').value = rgbToHex(msg.enColor);
+      if (msg.cnColor) setColorValue('cn-color', msg.cnColor);
+      if (msg.enColor) setColorValue('en-color', msg.enColor);
     }
 
     // 批量样式结果反馈：没套到东西也要说清楚原因（分组/画框自身没有 fills）
@@ -1081,15 +1403,16 @@
       if (msg.stroke) setPaintConfig('stroke', msg.stroke);
       $('#stroke-weight').value = msg.strokeWeight != null ? msg.strokeWeight : '';
       if (msg.strokeAlign) { $('#stroke-align').value = msg.strokeAlign; syncAlignDisplay(); }
+      setExtraEffects(msg);
       $('#shadow-on').checked = !!msg.shadowOn;
       if (msg.shadow) {
-        shadowOpacity = msg.shadow.color && msg.shadow.color.a != null ? msg.shadow.color.a : 1;
-        $('#shadow-color').value = rgbToHex(msg.shadow.color);
+        setColorValue('shadow-color', { ...msg.shadow.color, blendMode: msg.shadow.blendMode });
         $('#shadow-x').value = msg.shadow.offsetX != null ? msg.shadow.offsetX : '';
         $('#shadow-y').value = msg.shadow.offsetY != null ? msg.shadow.offsetY : '';
         $('#shadow-blur').value = msg.shadow.blur != null ? msg.shadow.blur : '';
         $('#shadow-spread').value = msg.shadow.spread != null ? msg.shadow.spread : '';
       }
+      syncStyleCards();
     }
 
     // ---- 颜色转换 ----
@@ -1129,15 +1452,14 @@
     // UI 内部用 hex + 百分比存色标，方便表单与颜色控件
     const paintUI = {
       fill: {
-        mode: 'solid', opacity: 1, type: 'GRADIENT_LINEAR', angle: 0,
+        mode: 'solid', opacity: 1, blendMode: 'NORMAL', type: 'GRADIENT_LINEAR', angle: 0,
         stops: [{ color: '#FF9161', alpha: 1, pos: 0 }, { color: '#FF5A2B', alpha: 1, pos: 100 }],
       },
       stroke: {
-        mode: 'solid', opacity: 1, type: 'GRADIENT_LINEAR', angle: 0,
+        mode: 'solid', opacity: 1, blendMode: 'NORMAL', type: 'GRADIENT_LINEAR', angle: 0,
         stops: [{ color: '#111827', alpha: 1, pos: 0 }, { color: '#6B7280', alpha: 1, pos: 100 }],
       },
     };
-    let shadowOpacity = 1;
     const clampPct = (n) => (isNaN(n) ? 0 : n < 0 ? 0 : n > 100 ? 100 : n);
     const norm360 = (a) => (((Number(a) || 0) % 360) + 360) % 360;
     const to255 = (hex) => { const c = hexToRgb(hex); return [Math.round(c.r * 255), Math.round(c.g * 255), Math.round(c.b * 255)]; };
@@ -1227,9 +1549,11 @@
         const row = document.createElement('div');
         row.className = 'stop-row';
         const col = document.createElement('input');
-        col.type = 'color';
+        col.type = 'hidden';
+        col.dataset.stop = 'true';
+        col.dataset.alpha = s.alpha == null ? 1 : s.alpha;
         col.value = s.color;
-        col.addEventListener('input', () => { s.color = col.value; renderGradient(key); });
+        col.addEventListener('input', () => { s.color = col.value; s.alpha = Number(col.dataset.alpha); renderGradient(key); });
 
         const num = document.createElement('input');
         num.type = 'number';
@@ -1261,6 +1585,7 @@
 
         row.append(col, num, pct, del);
         box.append(row);
+        installColorControl(col, '渐变色标');
       });
     }
 
@@ -1286,12 +1611,12 @@
       const stops = st.stops
         .slice()
         .sort((a, b) => a.pos - b.pos)
-        .map((s) => ({ c: to255(s.color), p: clampPct(s.pos) / 100 }));
-      const last = stops[stops.length - 1] || { c: [255, 255, 255], p: 1 };
+        .map((s) => ({ c: [...to255(s.color), s.alpha == null ? 1 : s.alpha], p: clampPct(s.pos) / 100 }));
+      const last = stops[stops.length - 1] || { c: [255, 255, 255, 1], p: 1 };
 
       const sample = (t) => {
         t = t < 0 ? 0 : t > 1 ? 1 : t;
-        if (!stops.length) return [255, 255, 255];
+        if (!stops.length) return [255, 255, 255, 1];
         if (t <= stops[0].p) return stops[0].c;
         for (let i = 0; i < stops.length - 1; i++) {
           const a = stops[i], b = stops[i + 1];
@@ -1301,6 +1626,7 @@
               a.c[0] + (b.c[0] - a.c[0]) * k,
               a.c[1] + (b.c[1] - a.c[1]) * k,
               a.c[2] + (b.c[2] - a.c[2]) * k,
+              a.c[3] + (b.c[3] - a.c[3]) * k,
             ];
           }
         }
@@ -1321,7 +1647,7 @@
           else t = ((Math.atan2(gy - 0.5, gx - 0.5) + Math.PI / 2) / (Math.PI * 2) + 1) % 1;
           const c = sample(t);
           const o = (y * cv.width + x) * 4;
-          data[o] = c[0]; data[o + 1] = c[1]; data[o + 2] = c[2]; data[o + 3] = 255;
+          data[o] = c[0]; data[o + 1] = c[1]; data[o + 2] = c[2]; data[o + 3] = Math.round(255 * c[3] * (st.opacity == null ? 1 : st.opacity));
         }
       }
       ctx.putImageData(img, 0, 0);
@@ -1364,10 +1690,12 @@
     function readPaintConfig(key) {
       const st = paintUI[key];
       if (st.mode === 'solid') {
-        return { kind: 'solid', color: hexToRgb($('#' + key + '-color').value), opacity: st.opacity == null ? 1 : st.opacity };
+        return { kind: 'solid', color: hexToRgb($('#' + key + '-color').value), opacity: st.opacity == null ? 1 : st.opacity, blendMode: st.blendMode || 'NORMAL' };
       }
       return {
         kind: 'gradient',
+        opacity: st.opacity == null ? 1 : st.opacity,
+        blendMode: st.blendMode || 'NORMAL',
         gradient: {
           gradientType: st.type,
           angle: norm360(st.angle),
@@ -1383,6 +1711,9 @@
     function setPaintConfig(key, cfg) {
       const st = paintUI[key];
       if (!cfg) return;
+      st.opacity = cfg.opacity == null ? 1 : cfg.opacity;
+      st.blendMode = cfg.blendMode || 'NORMAL';
+      syncPaintProperties(key);
       if (cfg.kind === 'gradient' && cfg.gradient) {
         st.mode = 'gradient';
         st.type = cfg.gradient.gradientType || 'GRADIENT_LINEAR';
@@ -1528,6 +1859,9 @@
       const searchWrap = root.querySelector('.dd-search');
       const searchInput = searchWrap ? searchWrap.querySelector('input') : null;
       const emptyEl = root.querySelector('.dd-empty');
+      trigger.setAttribute('aria-haspopup', 'listbox');
+      trigger.setAttribute('aria-expanded', 'false');
+      list.setAttribute('role', 'listbox');
 
       function syncDisplay() {
         const opt = sel.selectedOptions && sel.selectedOptions[0];
@@ -1581,6 +1915,8 @@
           const row = document.createElement('button');
           row.type = 'button';
           row.className = 'dd-row' + (o.value === sel.value ? ' on' : '');
+          row.setAttribute('role', 'option');
+          row.setAttribute('aria-selected', String(o.value === sel.value));
           const name = document.createElement('span');
           name.style.flex = '1';
           name.style.minWidth = '0';
@@ -1602,6 +1938,7 @@
             sel.dispatchEvent(new Event('change'));
             syncDisplay();
             close();
+            if (opts.floating) trigger.focus();
             onPick(o.value);
           };
           list.append(row);
@@ -1628,17 +1965,32 @@
 
       function open() {
         // 打开任一下拉时，收起其余所有弹层
-        closeAllPickers();
+        if (opts.keepColorPanel) {
+          closePresetPop(); closeStylePop();
+          Object.values(ddRegistry).forEach(dropdown => dropdown.close());
+        } else closeAllPickers();
         root.classList.add('open');
         pop.classList.add('open');
         // 打开时才按需取数：字体库体积大且加载慢，不该拖住插件启动
         if (typeof opts.onOpen === 'function') opts.onOpen();
         build(searchInput ? searchInput.value : '');
+        trigger.setAttribute('aria-expanded', 'true');
+        if (opts.floating) {
+          const rect = trigger.getBoundingClientRect();
+          const below = innerHeight - rect.bottom - 12, above = rect.top - 12;
+          const down = below >= 180 || below >= above;
+          const height = Math.min(280, Math.max(80, down ? below : above));
+          const width = Math.min(Math.max(rect.width, 180), innerWidth - 24);
+          Object.assign(pop.style, { position:'fixed', left:Math.max(12,Math.min(rect.left,innerWidth-width-12))+'px', right:'auto', width:width+'px', maxHeight:height+'px', top:down ? (rect.bottom+7)+'px' : 'auto', bottom:down ? 'auto' : (innerHeight-rect.top+7)+'px' });
+          const selected = list.querySelector('.dd-row.on');
+          if (selected) selected.scrollIntoView({ block:'nearest' });
+        }
         if (searchInput) setTimeout(() => searchInput.focus(), 30);
       }
       function close() {
         root.classList.remove('open');
         pop.classList.remove('open');
+        trigger.setAttribute('aria-expanded', 'false');
       }
 
       trigger.addEventListener('click', (e) => {
@@ -1647,6 +1999,21 @@
       });
       if (searchInput) searchInput.addEventListener('input', () => build(searchInput.value));
       root.addEventListener('click', (e) => e.stopPropagation());
+      if (opts.floating) root.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && pop.classList.contains('open')) { e.preventDefault(); e.stopPropagation(); close(); trigger.focus(); }
+        else if (['ArrowDown','ArrowUp','Home','End'].includes(e.key)) {
+          e.preventDefault();
+          if (!pop.classList.contains('open')) open();
+          const items = Array.from(list.querySelectorAll('.dd-row'));
+          const currentIndex = items.indexOf(document.activeElement);
+          const index = e.key === 'Home' ? 0 : e.key === 'End' ? items.length-1 : currentIndex < 0 ? (e.key === 'ArrowUp' ? items.length-1 : 0) : (currentIndex + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+          if (items[index]) items[index].focus();
+        } else if (e.key === 'Tab' && pop.classList.contains('open')) { close(); trigger.focus(); }
+      });
+      if (opts.floating) {
+        window.addEventListener('resize', close);
+        document.addEventListener('scroll', e => { if (!pop.contains(e.target)) close(); }, true);
+      }
       document.addEventListener('click', close);
       document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
 
@@ -1717,8 +2084,8 @@
         enFont,
         cnSize: parseFloat($('#cn-size').value) || null,
         enSize: parseFloat($('#en-size').value) || null,
-        cnColor: hexToRgb($('#cn-color').value),
-        enColor: hexToRgb($('#en-color').value),
+        cnColor: readColorValue('cn-color'),
+        enColor: readColorValue('en-color'),
         symbolFontSide,
         pairedOuterValue: Number.isFinite(parseFloat($('#kerning-outer').value)) ? parseFloat($('#kerning-outer').value) : -45,
         applyColors,
@@ -1776,8 +2143,8 @@
         enFont: fontSel.en || parseFont($('#en-font').value),
         cnSize: parseFloat($('#cn-size').value) || null,
         enSize: parseFloat($('#en-size').value) || null,
-        cnColor: hexToRgb($('#cn-color').value),
-        enColor: hexToRgb($('#en-color').value),
+        cnColor: readColorValue('cn-color'),
+        enColor: readColorValue('en-color'),
         symbolFontSide,
       };
     }
@@ -1887,8 +2254,8 @@
       if (p.enFont) setFontValue('en', p.enFont);
       $('#cn-size').value = p.cnSize != null ? p.cnSize : '';
       $('#en-size').value = p.enSize != null ? p.enSize : '';
-      if (p.cnColor) $('#cn-color').value = rgbToHex(p.cnColor);
-      if (p.enColor) $('#en-color').value = rgbToHex(p.enColor);
+      if (p.cnColor) setColorValue('cn-color', p.cnColor);
+      if (p.enColor) setColorValue('en-color', p.enColor);
       setSymbolFontSide(p.symbolFontSide);
     }
 
@@ -2010,9 +2377,10 @@
         strokeColor: hexToRgb($('#stroke-color').value),
         strokeWeight: parseFloat($('#stroke-weight').value) || 0,
         strokeAlign: $('#stroke-align').value,
+        ...readExtraEffects(true),
         shadowOn: $('#shadow-on').checked,
         shadow: {
-          color: Object.assign(hexToRgb($('#shadow-color').value), { a: shadowOpacity }),
+          color: readColorValue('shadow-color'), blendMode: $('#shadow-color').dataset.blend || 'NORMAL',
           offsetX: parseFloat($('#shadow-x').value) || 0,
           offsetY: parseFloat($('#shadow-y').value) || 0,
           blur: parseFloat($('#shadow-blur').value) || 0,
@@ -2116,15 +2484,16 @@
         $('#stroke-align').value = p.strokeAlign;
         syncAlignDisplay();
       }
+      setExtraEffects(p);
       $('#shadow-on').checked = !!p.shadowOn;
       if (p.shadow) {
-        shadowOpacity = p.shadow.color && p.shadow.color.a != null ? p.shadow.color.a : 1;
-        $('#shadow-color').value = rgbToHex(p.shadow.color);
+        setColorValue('shadow-color', { ...p.shadow.color, blendMode: p.shadow.blendMode });
         $('#shadow-x').value = p.shadow.offsetX != null ? p.shadow.offsetX : '';
         $('#shadow-y').value = p.shadow.offsetY != null ? p.shadow.offsetY : '';
         $('#shadow-blur').value = p.shadow.blur != null ? p.shadow.blur : '';
         $('#shadow-spread').value = p.shadow.spread != null ? p.shadow.spread : '';
       }
+      syncStyleCards();
     }
 
     // 让「描边对齐」下拉的文字与实际取值保持一致（程序赋值后必须手动同步）
@@ -2223,13 +2592,15 @@
     // ---- 批量样式：应用 ----
     $('#style-apply').addEventListener('click', () => {
       const cfg = {
+        remove: Object.entries({ fill:'fill-on',stroke:'stroke-on',cornerRadius:'radius-on',shadow:'shadow-on',innerShadow:'innerShadow-on',layerBlur:'layerBlur-on',backgroundBlur:'backgroundBlur-on' }).filter(([,id]) => !document.getElementById(id).checked).map(([key]) => key),
         fill: $('#fill-on').checked ? readPaintConfig('fill') : null,
         cornerRadius: $('#radius-on').checked ? (parseFloat($('#radius').value) || 0) : null,
         stroke: $('#stroke-on').checked ? readPaintConfig('stroke') : null,
         strokeWeight: $('#stroke-on').checked ? (parseFloat($('#stroke-weight').value) || 0) : null,
         strokeAlign: $('#stroke-on').checked ? $('#stroke-align').value : null,
+        ...readExtraEffects(false),
         shadow: $('#shadow-on').checked ? {
-          color: Object.assign(hexToRgb($('#shadow-color').value), { a: shadowOpacity }),
+          color: readColorValue('shadow-color'), blendMode: $('#shadow-color').dataset.blend || 'NORMAL',
           offsetX: parseFloat($('#shadow-x').value) || 0,
           offsetY: parseFloat($('#shadow-y').value) || 0,
           blur: parseFloat($('#shadow-blur').value) || 0,
@@ -2627,6 +2998,7 @@
         }
       }, 200);
     }
+    initializeStyleControls();
   </script>
 </body>
 </html>
